@@ -9,8 +9,8 @@ namespace PreenchedorBRMED
     /// <summary>Tela "Meus formulários": o colaborador cria, renomeia e exclui formulários e define os campos de cada um.</summary>
     class FormModelos : Form
     {
-        static readonly string[] NomesTipo = { "Texto", "E-mail", "CPF" };
-        static readonly string[] ChavesTipo = { CampoForm.TipoTexto, CampoForm.TipoEmail, CampoForm.TipoCpf };
+        static readonly string[] NomesTipo = { "Texto", "E-mail", "Número", "Documento: CPF", "Documento: RG", "Documento: Passaporte" };
+        static readonly string[] ChavesTipo = { CampoForm.TipoTexto, CampoForm.TipoEmail, CampoForm.TipoNumero, CampoForm.TipoCpf, CampoForm.TipoRg, CampoForm.TipoPassaporte };
 
         static FormModelos aberto;
 
@@ -64,7 +64,7 @@ namespace PreenchedorBRMED
             var dicaCampos = new RotuloQuebra
             {
                 Text = "Campos do formulário. Escreva o rótulo na última linha vazia para criar um campo novo. "
-                    + "O tipo E-mail e CPF validam o que for digitado; os campos obrigatórios precisam estar preenchidos para salvar os dados.",
+                    + "Os tipos E-mail, Número e Documento (CPF, RG, Passaporte) validam o que for digitado; CPF e RG podem ir com ou sem pontos para os outros sistemas, escolhendo ao mapear; os campos obrigatórios precisam estar preenchidos para salvar os dados.",
                 ForeColor = Tema.Suave, Dock = DockStyle.Top, Padding = new Padding(0, 10, 0, 6)
             };
             nome.Dock = DockStyle.Top;
@@ -126,14 +126,7 @@ namespace PreenchedorBRMED
 
         static Button Botao(string texto, bool principal)
         {
-            var b = new Button
-            {
-                Text = texto, AutoSize = true, Height = 34, FlatStyle = FlatStyle.Flat, Padding = new Padding(8, 0, 8, 0),
-                BackColor = principal ? Tema.Petroleo : Color.White, ForeColor = principal ? Color.White : Tema.Marinho,
-                UseMnemonic = false
-            };
-            b.FlatAppearance.BorderColor = principal ? Tema.Petroleo : Tema.LinhaForte;
-            return b;
+            return new BotaoMarca(texto, principal ? EstiloBotao.Primario : EstiloBotao.Contorno) { AutoSize = true };
         }
 
         void ConfigurarGrade()

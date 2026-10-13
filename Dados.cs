@@ -33,17 +33,17 @@ namespace PreenchedorBRMED
             return Paleta[Math.Max(0, modelo.Campos.IndexOf(campo)) % Paleta.Length];
         }
 
-        /// <summary>O que pode ir para um campo de outro sistema. O CPF tem duas versões.</summary>
+        /// <summary>O que pode ir para um campo de outro sistema. CPF e RG têm duas versões (com e sem pontos).</summary>
         public static Dado[] Destinos(ModeloFormulario modelo)
         {
             var lista = new List<Dado>();
             foreach (var c in modelo.Campos)
             {
                 var cor = CorDoCampo(modelo, c);
-                if (c.EhCpf)
+                if (c.TemMascara)
                 {
                     lista.Add(new Dado(c.Chave, c.Rotulo + " com pontos", cor));
-                    lista.Add(new Dado(c.Chave + SufixoNumeros, c.Rotulo + " só números", cor));
+                    lista.Add(new Dado(c.Chave + SufixoNumeros, c.Rotulo + " sem pontos", cor));
                 }
                 else lista.Add(new Dado(c.Chave, c.Rotulo, cor));
             }
@@ -91,6 +91,7 @@ namespace PreenchedorBRMED
                 if (atuais.TryGetValue(modelo.Id, out valores)) valores.TryGetValue(chaveCampo, out bruto);
             }
             if (campo.EhCpf) return numeros ? SomenteDigitos(bruto) : FormatarCpf(bruto);
+            if (campo.EhRg) return numeros ? SomenteAlfanumerico(bruto) : FormatarRg(bruto);
             return numeros ? "" : bruto ?? "";
         }
 
@@ -107,6 +108,16 @@ namespace PreenchedorBRMED
         }
 
         public static string SomenteDigitos(string s) { return Regex.Replace(s ?? "", @"\D", ""); }
+
+        public static string SomenteAlfanumerico(string s) { return Regex.Replace(s ?? "", @"[^0-9A-Za-z]", "").ToUpperInvariant(); }
+
+        /// <summary>RG de 9 caracteres vira 00.000.000-0; outros tamanhos (cada estado tem o seu) ficam como foram digitados.</summary>
+        public static string FormatarRg(string s)
+        {
+            var d = SomenteAlfanumerico(s);
+            if (d.Length != 9) return (s ?? "").Trim();
+            return d.Substring(0, 2) + "." + d.Substring(2, 3) + "." + d.Substring(5, 3) + "-" + d.Substring(8);
+        }
 
         public static string FormatarCpf(string s)
         {

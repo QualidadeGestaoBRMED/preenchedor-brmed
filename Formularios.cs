@@ -13,7 +13,8 @@ namespace PreenchedorBRMED
     [DataContract]
     class CampoForm
     {
-        public const string TipoTexto = "texto", TipoEmail = "email", TipoCpf = "cpf";
+        public const string TipoTexto = "texto", TipoEmail = "email", TipoNumero = "numero",
+            TipoCpf = "cpf", TipoRg = "rg", TipoPassaporte = "passaporte"; // os três últimos são os tipos de "Documento"
 
         [DataMember(Order = 1)] public string Chave { get; set; }
         [DataMember(Order = 2)] public string Rotulo { get; set; }
@@ -21,6 +22,11 @@ namespace PreenchedorBRMED
         [DataMember(Order = 4)] public bool Obrigatorio { get; set; }
 
         public bool EhCpf { get { return string.Equals(Tipo, TipoCpf, StringComparison.OrdinalIgnoreCase); } }
+        public bool EhRg { get { return string.Equals(Tipo, TipoRg, StringComparison.OrdinalIgnoreCase); } }
+        public bool EhPassaporte { get { return string.Equals(Tipo, TipoPassaporte, StringComparison.OrdinalIgnoreCase); } }
+        public bool EhNumero { get { return string.Equals(Tipo, TipoNumero, StringComparison.OrdinalIgnoreCase); } }
+        /// <summary>Documentos que podem ir com pontos ou só com números/letras para o outro sistema.</summary>
+        public bool TemMascara { get { return EhCpf || EhRg; } }
         public bool EhEmail { get { return string.Equals(Tipo, TipoEmail, StringComparison.OrdinalIgnoreCase); } }
     }
 
@@ -64,7 +70,7 @@ namespace PreenchedorBRMED
 
             var usadas = new HashSet<string>((Campos ?? new List<CampoForm>()).Select(c => c.Chave));
             var chave = baseChave;
-            // "_numeros" é reservado para a versão só-números do CPF.
+            // "_numeros" é reservado para a versão sem pontos de CPF e RG.
             for (int i = 2; usadas.Contains(chave) || chave.EndsWith("_numeros"); i++) chave = baseChave + "_" + i;
             return chave;
         }
@@ -78,6 +84,24 @@ namespace PreenchedorBRMED
     {
         public const string IdPadrao = "padrao";
         public static readonly string Caminho = Path.Combine(RepositorioPerfis.Pasta, "formularios.json");
+
+        static readonly string CaminhoPrincipal = Path.Combine(RepositorioPerfis.Pasta, "principal.txt");
+
+        /// <summary>Formulário que o programa sempre abre (escolhido em Configurações). Se foi excluído, vale o padrão.</summary>
+        public static string IdPrincipal
+        {
+            get
+            {
+                try { if (File.Exists(CaminhoPrincipal)) return Obter(File.ReadAllText(CaminhoPrincipal).Trim()).Id; }
+                catch (IOException) { }
+                return IdPadrao;
+            }
+            set
+            {
+                Directory.CreateDirectory(RepositorioPerfis.Pasta);
+                File.WriteAllText(CaminhoPrincipal, value ?? IdPadrao);
+            }
+        }
 
         /// <summary>Disparado depois de salvar, para as telas abertas se atualizarem.</summary>
         public static event Action Alterado;
