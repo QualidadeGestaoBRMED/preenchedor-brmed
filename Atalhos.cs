@@ -44,8 +44,8 @@ namespace PreenchedorBRMED
                 else
                 {
                     Keys t;
-                    if (parte.Length == 1 && char.IsDigit(parte[0])) parte = "D" + parte;
-                    if (!Enum.TryParse(parte, true, out t) || resultado.Tecla != Keys.None) return false;
+                    string nome = parte.Length == 1 && char.IsDigit(parte[0]) ? "D" + parte : parte;
+                    if (!Enum.TryParse(nome, true, out t)|| resultado.Tecla != Keys.None) return false;
                     resultado.Tecla = t;
                 }
             }
