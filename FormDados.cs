@@ -268,7 +268,7 @@ namespace PreenchedorBRMED
             Dados.Salvar(modelo.Id, novo);
             rascunhos.Remove(modelo.Id);
             MostrarErro("");
-            Aviso.Mostrar("Dados de \"" + modelo.Nome + "\" salvos. Agora vá a cada sistema e use Ctrl+Alt+V.");
+            Aviso.Mostrar("Dados de \"" + modelo.Nome + "\" salvos. Agora vá a cada sistema e use " + Atalhos.Texto(Acao.Colar) + ".");
         }
 
         /// <summary>Coloca nos campos o que foi capturado de outro sistema (Ctrl+Alt+C), sem salvar.</summary>

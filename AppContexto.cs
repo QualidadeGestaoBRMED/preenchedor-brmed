@@ -10,14 +10,14 @@ namespace PreenchedorBRMED
     /// <summary>Programa que fica na bandeja do Windows e atende os atalhos globais.</summary>
     class AppContexto : ApplicationContext
     {
-        const int ATALHO_FORMULARIO = 1, ATALHO_COLAR = 2, ATALHO_MAPEAR = 3, ATALHO_CAPTURAR = 4, ATALHO_MAPEAR_CAPTURA = 5;
-
         readonly NotifyIcon icone;
         readonly JanelaAtalhos atalhos;
         readonly SynchronizationContext ui;
         FormDados formDados;
         FormPerfis formPerfis;
         FormMapear formMapear;
+        FormAtalhos formAtalhos;
+        ToolStripItem itemFormulario;
         bool ocupado;
 
         public AppContexto()
@@ -30,13 +30,14 @@ namespace PreenchedorBRMED
             Dados.FormularioAtivo = RepositorioFormularios.IdPrincipal;
 
             var menu = new ContextMenuStrip();
-            menu.Items.Add("Abrir formulário  (Ctrl+Alt+F)", null, (s, e) => AbrirFormulario());
+            itemFormulario = menu.Items.Add("Abrir formulário", null, (s, e) => AbrirFormulario());
             menu.Items.Add("Gerenciar formulários…", null, (s, e) => FormModelos.Abrir());
             var principal = new ToolStripMenuItem("Formulário principal");
             principal.DropDownOpening += (s, e) => MontarMenuPrincipal(principal);
             principal.DropDownItems.Add("…");
             var config = new ToolStripMenuItem("Configurações");
             config.DropDownItems.Add(principal);
+            config.DropDownItems.Add("Atalhos…", null, (s, e) => AbrirAtalhos());
             menu.Items.Add(config);
             menu.Items.Add("Sistemas mapeados…", null, (s, e) => AbrirPerfis());
             menu.Items.Add("Abrir sistema de teste", null, (s, e) => new SistemaTeste().Show());
@@ -55,31 +56,58 @@ namespace PreenchedorBRMED
 
             atalhos = new JanelaAtalhos();
             atalhos.Pressionado += AoPressionar;
-            var falhas = new System.Collections.Generic.List<string>();
-            if (!atalhos.Registrar(ATALHO_FORMULARIO, Nativo.MOD_CONTROL | Nativo.MOD_ALT, Keys.F)) falhas.Add("Ctrl+Alt+F");
-            if (!atalhos.Registrar(ATALHO_COLAR, Nativo.MOD_CONTROL | Nativo.MOD_ALT, Keys.V)) falhas.Add("Ctrl+Alt+V");
-            if (!atalhos.Registrar(ATALHO_MAPEAR, Nativo.MOD_CONTROL | Nativo.MOD_ALT, Keys.M)) falhas.Add("Ctrl+Alt+M");
-            if (!atalhos.Registrar(ATALHO_CAPTURAR, Nativo.MOD_CONTROL | Nativo.MOD_ALT, Keys.C)) falhas.Add("Ctrl+Alt+C");
-            if (!atalhos.Registrar(ATALHO_MAPEAR_CAPTURA, Nativo.MOD_CONTROL | Nativo.MOD_ALT, Keys.K)) falhas.Add("Ctrl+Alt+K");
+            var falhas = RegistrarAtalhos();
 
+            AtualizarMenu();
             RepositorioPerfis.Todos(); // cria o arquivo de perfis na primeira execução
 
             if (falhas.Count > 0)
                 Aviso.Mostrar("Outro programa já usa " + string.Join(", ", falhas) + ". Esses atalhos não vão funcionar.", true);
             else
-                Aviso.Mostrar("Preenchedor ativo. Ctrl+Alt+F abre o formulário.");
+                Aviso.Mostrar("Preenchedor ativo. " + Atalhos.Texto(Acao.Formulario) + " abre o formulário.");
+        }
+
+        void AtualizarMenu() { itemFormulario.Text = "Abrir formulário  (" + Atalhos.Texto(Acao.Formulario) + ")"; }
+
+        /// <summary>Registra os atalhos salvos; devolve os que o Windows recusou (já em uso por outro programa).</summary>
+        System.Collections.Generic.List<string> RegistrarAtalhos()
+        {
+            atalhos.Limpar();
+            var falhas = new System.Collections.Generic.List<string>();
+            var salvos = Atalhos.Carregar();
+            foreach (var a in Atalhos.Todas)
+                if (!atalhos.Registrar((int)a + 1, salvos[a].Modificadores, salvos[a].Tecla)) falhas.Add(salvos[a].ToString());
+            return falhas;
+        }
+
+        void AbrirAtalhos()
+        {
+            if (formAtalhos != null && !formAtalhos.IsDisposed) { formAtalhos.Activate(); return; }
+            formAtalhos = new FormAtalhos();
+            formAtalhos.FormClosed += (s, e) =>
+            {
+                if (formAtalhos.DialogResult != DialogResult.OK) return;
+                var falhas = RegistrarAtalhos();
+                AtualizarMenu();
+                if (falhas.Count > 0) Aviso.Mostrar("Outro programa já usa " + string.Join(", ", falhas) + ". Esses atalhos não vão funcionar.", true);
+                else Aviso.Mostrar("Atalhos atualizados.");
+            };
+            formAtalhos.Show();
         }
 
         void AoPressionar(int id)
         {
-            if (id == ATALHO_FORMULARIO) AbrirFormulario();
-            else if (id == ATALHO_COLAR) Colar();
-            else if (id == ATALHO_MAPEAR) Mapear(false);
-            else if (id == ATALHO_MAPEAR_CAPTURA) Mapear(true);
-            else if (id == ATALHO_CAPTURAR) Capturar();
+            switch ((Acao)(id - 1))
+            {
+                case Acao.Formulario: AbrirFormulario(); break;
+                case Acao.Colar: Colar(); break;
+                case Acao.Mapear: Mapear(false); break;
+                case Acao.MapearCaptura: Mapear(true); break;
+                case Acao.Capturar: Capturar(); break;
+            }
         }
 
-        /// <summary>Lista os formulários no menu; o marcado é o que sempre abre com Ctrl+Alt+F.</summary>
+        /// <summary>Lista os formulários no menu; o marcado é o que sempre abre com o atalho do formulário.</summary>
         static void MontarMenuPrincipal(ToolStripMenuItem pai)
         {
             pai.DropDownItems.Clear();
@@ -129,14 +157,14 @@ namespace PreenchedorBRMED
             var perfil = RepositorioPerfis.Encontrar(processo, titulo);
             if (perfil == null)
             {
-                Aviso.Mostrar("O programa \"" + processo + "\" ainda não foi mapeado. Aponte o mouse para um campo e use Ctrl+Alt+M.", true);
+                Aviso.Mostrar("O programa \"" + processo + "\" ainda não foi mapeado. Aponte o mouse para um campo e use " + Atalhos.Texto(Acao.Mapear) + ".", true);
                 return;
             }
 
             if (!Dados.TemDados(perfil.FormularioId))
             {
                 Aviso.Mostrar("Nenhum dado salvo para o formulário \"" + RepositorioFormularios.Obter(perfil.FormularioId).Nome
-                    + "\". Use Ctrl+Alt+F para preenchê-lo.", true);
+                    + "\". Use " + Atalhos.Texto(Acao.Formulario) + " para preenchê-lo.", true);
                 return;
             }
 
@@ -180,7 +208,7 @@ namespace PreenchedorBRMED
             var perfil = RepositorioPerfis.Capturavel(processo, titulo);
             if (perfil == null)
             {
-                Aviso.Mostrar("Nenhum campo de captura mapeado para \"" + processo + "\". Aponte o mouse para um campo e use Ctrl+Alt+K.", true);
+                Aviso.Mostrar("Nenhum campo de captura mapeado para \"" + processo + "\". Aponte o mouse para um campo e use " + Atalhos.Texto(Acao.MapearCaptura) + ".", true);
                 return;
             }
 
@@ -228,10 +256,15 @@ namespace PreenchedorBRMED
             base.WndProc(ref m);
         }
 
-        public void Dispose()
+        public void Limpar()
         {
             foreach (var id in registrados) Nativo.UnregisterHotKey(Handle, id);
             registrados.Clear();
+        }
+
+        public void Dispose()
+        {
+            Limpar();
             DestroyHandle();
         }
     }

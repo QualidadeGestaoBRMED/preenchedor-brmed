@@ -49,7 +49,7 @@ namespace PreenchedorBRMED
         {
             if (perfil.Campos == null || !perfil.Campos.Any(c => !c.Captura))
             {
-                r.Erro = "O perfil \"" + perfil.Nome + "\" ainda não tem campos. Aponte o mouse para um campo e use Ctrl+Alt+M.";
+                r.Erro = "O perfil \"" + perfil.Nome + "\" ainda não tem campos. Aponte o mouse para um campo e use " + Atalhos.Texto(Acao.Mapear) + ".";
                 return;
             }
             var raiz = AutomationElement.FromHandle(janela);

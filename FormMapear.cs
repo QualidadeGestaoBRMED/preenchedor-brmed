@@ -88,7 +88,7 @@ namespace PreenchedorBRMED
                         captura.Campo.Dado = chave;
                         RepositorioPerfis.MapearCampo(captura.Processo, captura.TituloJanela, captura.Campo, modelo.Id);
                         Aviso.Mostrar(paraCaptura
-                            ? "\"" + captura.Campo.Descricao + "\" será capturado em " + Dados.Rotulo(modelo.Id, chave) + ". Use Ctrl+Alt+C para capturar."
+                            ? "\"" + captura.Campo.Descricao + "\" será capturado em " + Dados.Rotulo(modelo.Id, chave) + ". Use " + Atalhos.Texto(Acao.Capturar) + " para capturar."
                             : "\"" + captura.Campo.Descricao + "\" vai receber " + Dados.Rotulo(modelo.Id, chave) + ".");
                         Close();
                     };

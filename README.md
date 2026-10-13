@@ -11,7 +11,7 @@ de sistemas desktop do Windows com um atalho.
 | Ctrl+Alt+V | Cola os dados na janela ativa, conforme o perfil daquele sistema |
 | Ctrl+Alt+M | Mapeia o campo que está **sob o mouse** para receber um dado (colar) |
 | Ctrl+Alt+K | Mapeia o campo que está **sob o mouse** para **capturar** o valor dele |
-| Ctrl+Alt+C | Captura os campos mapeados da janela ativa e joga no formulário (sem salvar) |
+| Ctrl+Alt+L | Captura os campos mapeados da janela ativa e joga no formulário (sem salvar) |
 
 O programa fica no ícone perto do relógio. Em **Configurações → Formulário principal** (menu do ícone) escolha qual
 formulário o Ctrl+Alt+F sempre abre; o nome dele aparece no topo da janela. Pelo menu do ícone: formulário, meus formulários, sistemas mapeados,
@@ -21,7 +21,7 @@ sistema de teste, apagar dados e sair.
 
 1. Abra o sistema (ou o site no navegador), aponte o mouse para o campo de onde quer copiar e pressione **Ctrl+Alt+K**.
    Escolha em qual dado do formulário ele cai. Repita para cada campo; pode ser de vários sistemas e sites.
-2. Nas próximas vezes, com a tela aberta, pressione **Ctrl+Alt+C**: os valores vão para o formulário, que abre
+2. Nas próximas vezes, com a tela aberta, pressione **Ctrl+Alt+L**: os valores vão para o formulário, que abre
    com eles preenchidos. Complete o que faltar e clique em **Salvar dados** (ou não), depois use **Ctrl+Alt+V** nos destinos.
 3. Campos mapeados para captura em outras telas do mesmo programa são ignorados. No navegador a captura depende de a
    página expor os campos à acessibilidade do Windows.
@@ -113,13 +113,14 @@ O `perfis.json` guarda apenas como encontrar os campos, nunca os dados do colabo
   Se for o caso, troque `asInvoker` por `requireAdministrator` em `app.manifest`.
 - Sistemas em **Java (Swing)** precisam do Java Access Bridge ativado para serem vistos; sem ele, use digitação.
 - Em **Citrix/RDP** só a digitação funciona.
-- Os atalhos são fixos no código (`AppContexto.cs`). Se algum conflitar com outro programa, o aviso inicial mostra qual.
+- Os atalhos podem ser trocados em **Configurações > Atalhos…** (menu do ícone) e ficam em `atalhos.txt`. Se algum conflitar com outro programa, o aviso mostra qual. Os atalhos abaixo são os padrão.
 - Antes de distribuir, **assine o .exe** (signtool) para evitar alertas do Windows e do antivírus.
 
 ## Estrutura
 
 | Arquivo | Papel |
 |---|---|
+| `Atalhos.cs`, `FormAtalhos.cs` | Atalhos configuráveis e a tela para trocá-los |
 | `AppContexto.cs` | Ícone da bandeja, atalhos globais e orquestração |
 | `FormDados.cs` | Formulário principal (monta os campos do formulário escolhido; validação de CPF e e-mail) |
 | `Formularios.cs` / `FormModelos.cs` | Formulários criados pelo colaborador (JSON) e a tela para editá-los |

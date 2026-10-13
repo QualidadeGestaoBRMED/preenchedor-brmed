@@ -61,7 +61,7 @@ namespace PreenchedorBRMED
 
             Controls.Add(new Label
             {
-                Text = "Clique no primeiro campo e pressione Ctrl+Alt+V.", ForeColor = Color.DimGray,
+                Text = "Clique no primeiro campo e pressione " + Atalhos.Texto(Acao.Colar) + ".", ForeColor = Color.DimGray,
                 Location = new Point(24, y + 14), AutoSize = true
             });
         }

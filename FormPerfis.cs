@@ -59,7 +59,7 @@ namespace PreenchedorBRMED
             var dica = new RotuloQuebra
             {
                 Dock = DockStyle.Top, Padding = new Padding(14, 12, 14, 8), ForeColor = Tema.Marinho,
-                Text = "Para mapear: abra o sistema, aponte o mouse para um campo e pressione Ctrl+Alt+M (colar) ou Ctrl+Alt+K (capturar)."
+                Text = "Para mapear: abra o sistema, aponte o mouse para um campo e pressione " + Atalhos.Texto(Acao.Mapear) + " (colar) ou " + Atalhos.Texto(Acao.MapearCaptura) + " (capturar)."
             };
 
             var divisor = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 200, Panel1MinSize = 120 };
