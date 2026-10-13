@@ -20,6 +20,7 @@ namespace PreenchedorBRMED
         }
 
         readonly Timer temporizador = new Timer();
+        readonly Color barra;
 
         Aviso(string texto, bool problema)
         {
@@ -27,15 +28,16 @@ namespace PreenchedorBRMED
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.Manual;
             AutoScaleMode = AutoScaleMode.Dpi;
-            BackColor = problema ? Tema.Cobre : Tema.Marinho;
-            Padding = new Padding(16, 12, 16, 12);
+            barra = problema ? Tema.Perigo : Tema.Petroleo;
+            BackColor = problema ? Tema.PerigoSuave : Tema.Petroleo100;
+            Padding = new Padding(20, 12, 16, 12);
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
 
             var rotulo = new Label
             {
                 Text = texto,
-                ForeColor = Color.White,
+                ForeColor = Tema.Marinho,
                 Font = Tema.Texto(10f),
                 AutoSize = true,
                 MaximumSize = new Size(340, 0)
@@ -46,6 +48,13 @@ namespace PreenchedorBRMED
 
             temporizador.Interval = problema ? 6500 : 4000;
             temporizador.Tick += (s, e) => Close();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            using (var pincel = new SolidBrush(barra)) e.Graphics.FillRectangle(pincel, 0, 0, 4, Height);
+            using (var caneta = new Pen(Tema.Linha)) e.Graphics.DrawRectangle(caneta, 0, 0, Width - 1, Height - 1);
         }
 
         protected override bool ShowWithoutActivation { get { return true; } }

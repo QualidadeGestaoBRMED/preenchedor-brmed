@@ -17,6 +17,17 @@ namespace PreenchedorBRMED
         public static readonly Color Verde = ColorTranslator.FromHtml("#2CAD6E");
         public static readonly Color Cobre = ColorTranslator.FromHtml("#A05E1E");
         public static readonly Color Ambar = ColorTranslator.FromHtml("#CC851E");
+        // Care (azuis calmos)
+        public static readonly Color CareAzul = ColorTranslator.FromHtml("#7EBFCC");
+        // Tons derivados (superfícies e estados)
+        public static readonly Color Petroleo700 = ColorTranslator.FromHtml("#006276");
+        public static readonly Color Petroleo900 = ColorTranslator.FromHtml("#00536B");
+        public static readonly Color Petroleo100 = ColorTranslator.FromHtml("#E0EFF2");
+        public static readonly Color Marinho100 = ColorTranslator.FromHtml("#E6ECEF");
+        public static readonly Color TextoCorpo = ColorTranslator.FromHtml("#2C4456");
+        // Status
+        public static readonly Color Perigo = ColorTranslator.FromHtml("#C0392B");
+        public static readonly Color PerigoSuave = ColorTranslator.FromHtml("#F8E6E3");
         // Apoio
         public static readonly Color Fundo = ColorTranslator.FromHtml("#F3F3F3");
         public static readonly Color Linha = ColorTranslator.FromHtml("#DFE0E2");
