@@ -7,18 +7,32 @@ de sistemas desktop do Windows com um atalho.
 
 | Atalho | O que faz |
 |---|---|
-| Ctrl+Alt+F | Abre o formulário de dados (há um seletor para trocar de formulário) |
+| Ctrl+Alt+F | Abre o formulário de dados (sempre o formulário principal) |
 | Ctrl+Alt+V | Cola os dados na janela ativa, conforme o perfil daquele sistema |
-| Ctrl+Alt+M | Mapeia o campo que está **sob o mouse** |
+| Ctrl+Alt+M | Mapeia o campo que está **sob o mouse** para receber um dado (colar) |
+| Ctrl+Alt+K | Mapeia o campo que está **sob o mouse** para **capturar** o valor dele |
+| Ctrl+Alt+C | Captura os campos mapeados da janela ativa e joga no formulário (sem salvar) |
 
-O programa fica no ícone perto do relógio. Pelo menu do ícone: formulário, meus formulários, sistemas mapeados,
+O programa fica no ícone perto do relógio. Em **Configurações → Formulário principal** (menu do ícone) escolha qual
+formulário o Ctrl+Alt+F sempre abre; o nome dele aparece no topo da janela. Pelo menu do ícone: formulário, meus formulários, sistemas mapeados,
 sistema de teste, apagar dados e sair.
+
+## Capturar dados de outro sistema ou site
+
+1. Abra o sistema (ou o site no navegador), aponte o mouse para o campo de onde quer copiar e pressione **Ctrl+Alt+K**.
+   Escolha em qual dado do formulário ele cai. Repita para cada campo; pode ser de vários sistemas e sites.
+2. Nas próximas vezes, com a tela aberta, pressione **Ctrl+Alt+C**: os valores vão para o formulário, que abre
+   com eles preenchidos. Complete o que faltar e clique em **Salvar dados** (ou não), depois use **Ctrl+Alt+V** nos destinos.
+3. Campos mapeados para captura em outras telas do mesmo programa são ignorados. No navegador a captura depende de a
+   página expor os campos à acessibilidade do Windows.
+
+O formulário **não fecha ao salvar**; use **Limpar dados** para começar com outra informação.
 
 ## Formulários próprios
 
 Além do "Cadastro padrão", cada colaborador pode criar quantos formulários quiser (menu do ícone → **Meus formulários…**
-ou botão **Gerenciar…** no formulário de dados). Em cada um define os campos: rótulo, tipo (Texto, E-mail ou CPF, que
-validam o que for digitado) e se é obrigatório. Os rótulos longos quebram linha.
+ou **Gerenciar formulários…**). Em cada um define os campos: rótulo, tipo (Texto, E-mail, Número ou Documento: CPF, RG ou Passaporte, que
+validam o que for digitado; CPF e RG têm as opções "com pontos" e "sem pontos" ao mapear) e se é obrigatório. Os rótulos longos quebram linha.
 
 - Cada sistema mapeado usa **um** formulário. Ao mapear um sistema novo com Ctrl+Alt+M, escolha de qual formulário vêm os dados;
   para mudar depois, use **Sistemas mapeados… → Trocar formulário…**.
@@ -109,7 +123,7 @@ O `perfis.json` guarda apenas como encontrar os campos, nunca os dados do colabo
 | `AppContexto.cs` | Ícone da bandeja, atalhos globais e orquestração |
 | `FormDados.cs` | Formulário principal (monta os campos do formulário escolhido; validação de CPF e e-mail) |
 | `Formularios.cs` / `FormModelos.cs` | Formulários criados pelo colaborador (JSON) e a tela para editá-los |
-| `Controles.cs` | `RotuloQuebra`: rótulo que quebra linha em vez de cortar o texto |
+| `Controles.cs` | `RotuloQuebra` (rótulo que quebra linha) e `BotaoMarca` (botão no padrão do design system) |
 | `Mapeador.cs` / `FormMapear.cs` | Identifica o campo sob o mouse e grava o mapeamento |
 | `Preenchedor.cs` | Cola por UI Automation ou por digitação |
 | `Teclado.cs` | Digitação simulada (Unicode, funciona com acentos) |
@@ -117,4 +131,4 @@ O `perfis.json` guarda apenas como encontrar os campos, nunca os dados do colabo
 | `Aviso.cs` | Avisos no canto da tela que não roubam o foco |
 | `SistemaTeste.cs` | Sistema falso para testar sem os sistemas reais |
 | `compilar.bat` | Gera o .exe com o compilador que já vem no Windows |
-| `Tema.cs` | Cores e fontes BR MED (Work Sans/Roboto se instaladas; senão Segoe UI) |
+| `Tema.cs` | Tokens do design system BR MED (cores, fontes Work Sans/Roboto se instaladas; senão Segoe UI) |

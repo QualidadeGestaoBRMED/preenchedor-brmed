@@ -8,9 +8,10 @@ namespace PreenchedorBRMED
     /// <summary>Menu que aparece ao lado do campo apontado: o colaborador escolhe qual dado vai nele.</summary>
     class FormMapear : Form
     {
-        public FormMapear(Captura captura, Point perto)
+        public FormMapear(Captura captura, Point perto, bool paraCaptura = false)
         {
-            Text = "Mapear campo";
+            captura.Campo.Captura = paraCaptura;
+            Text = paraCaptura ? "Mapear campo para captura" : "Mapear campo";
             FormBorderStyle = FormBorderStyle.FixedToolWindow;
             StartPosition = FormStartPosition.Manual;
             TopMost = true;
@@ -36,7 +37,7 @@ namespace PreenchedorBRMED
 
             painel.Controls.Add(new Label
             {
-                Text = "Campo: " + captura.Campo.Descricao, Font = Tema.TextoForte(9.5f), ForeColor = Tema.Marinho,
+                Text = (paraCaptura ? "Capturar de: " : "Campo: ") + captura.Campo.Descricao, Font = Tema.TextoForte(9.5f), ForeColor = Tema.Marinho,
                 AutoSize = true, MaximumSize = new Size(230, 0), Margin = new Padding(0, 0, 0, 2), UseMnemonic = false
             });
             painel.Controls.Add(new Label
@@ -56,7 +57,7 @@ namespace PreenchedorBRMED
             {
                 painel.Controls.Add(new Label
                 {
-                    Text = travado ? "Formulário deste sistema:" : "Dados de qual formulário?", Font = Tema.Texto(8.5f), ForeColor = Tema.Suave,
+                    Text = travado ? "Formulário deste sistema:" : (paraCaptura ? "Capturar para qual formulário?" : "Dados de qual formulário?"), Font = Tema.Texto(8.5f), ForeColor = Tema.Suave,
                     AutoSize = true, MaximumSize = new Size(230, 0), Margin = new Padding(0, 0, 0, 2)
                 });
                 seletor = new ComboBox
@@ -86,7 +87,9 @@ namespace PreenchedorBRMED
                     {
                         captura.Campo.Dado = chave;
                         RepositorioPerfis.MapearCampo(captura.Processo, captura.TituloJanela, captura.Campo, modelo.Id);
-                        Aviso.Mostrar("\"" + captura.Campo.Descricao + "\" vai receber " + Dados.Rotulo(modelo.Id, chave) + ".");
+                        Aviso.Mostrar(paraCaptura
+                            ? "\"" + captura.Campo.Descricao + "\" será capturado em " + Dados.Rotulo(modelo.Id, chave) + ". Use Ctrl+Alt+C para capturar."
+                            : "\"" + captura.Campo.Descricao + "\" vai receber " + Dados.Rotulo(modelo.Id, chave) + ".");
                         Close();
                     };
                     opcoes.Controls.Add(b);
@@ -94,9 +97,8 @@ namespace PreenchedorBRMED
 
                 if (jaMapeado != null)
                 {
-                    var remover = BotaoMenu("Remover mapeamento", Tema.Cobre, false);
-                    remover.ForeColor = Tema.Cobre;
-                    remover.Image = null;
+                    var remover = BotaoMenu("Remover mapeamento", Tema.Perigo, false);
+                    remover.ForeColor = Tema.Perigo;
                     remover.Click += (s, e) =>
                     {
                         RepositorioPerfis.RemoverCampo(captura.Processo, captura.TituloJanela, captura.Campo);
@@ -132,17 +134,17 @@ namespace PreenchedorBRMED
             var fonte = destaque ? Tema.TextoForte(10f) : Tema.Texto(10f);
             // O texto quebra linha quando o rótulo é longo; a altura do botão cresce para caber.
             // Descontado: recuo de 6 + bolinha de 10 + folgas.
-            int altura = Math.Max(34, Tema.AlturaTexto(texto, fonte, largura - 34) + 14);
+            int altura = Math.Max(34, Tema.AlturaTexto(texto, fonte, largura - 24) + 14);
             var b = new Button
             {
                 Text = texto, TextAlign = ContentAlignment.MiddleLeft, ImageAlign = ContentAlignment.MiddleLeft,
-                TextImageRelation = TextImageRelation.ImageBeforeText, Image = Tema.Bolinha(cor),
-                Font = fonte, ForeColor = Tema.Marinho, UseMnemonic = false,
+                
+                Font = fonte, ForeColor = destaque ? Tema.Petroleo : Tema.Marinho, UseMnemonic = false,
                 FlatStyle = FlatStyle.Flat, BackColor = Color.White, Size = new Size(largura, altura),
-                Margin = new Padding(0, 0, 0, 2), Padding = new Padding(6, 0, 0, 0)
+                Margin = new Padding(0, 0, 0, 2), Padding = new Padding(10, 0, 0, 0)
             };
             b.FlatAppearance.BorderSize = 0;
-            b.FlatAppearance.MouseOverBackColor = Tema.Fundo;
+            b.FlatAppearance.MouseOverBackColor = Tema.Petroleo100;
             return b;
         }
 

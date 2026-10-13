@@ -59,7 +59,7 @@ namespace PreenchedorBRMED
             var dica = new RotuloQuebra
             {
                 Dock = DockStyle.Top, Padding = new Padding(14, 12, 14, 8), ForeColor = Tema.Marinho,
-                Text = "Para mapear: abra o sistema, aponte o mouse para um campo e pressione Ctrl+Alt+M."
+                Text = "Para mapear: abra o sistema, aponte o mouse para um campo e pressione Ctrl+Alt+M (colar) ou Ctrl+Alt+K (capturar)."
             };
 
             var divisor = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 200, Panel1MinSize = 120 };
@@ -80,13 +80,7 @@ namespace PreenchedorBRMED
 
         static Button Botao(string texto, bool principal)
         {
-            var b = new Button
-            {
-                Text = texto, AutoSize = true, Height = 34, FlatStyle = FlatStyle.Flat, Padding = new Padding(8, 0, 8, 0),
-                BackColor = principal ? Tema.Petroleo : Color.White, ForeColor = principal ? Color.White : Tema.Marinho
-            };
-            b.FlatAppearance.BorderColor = principal ? Tema.Petroleo : Tema.LinhaForte;
-            return b;
+            return new BotaoMarca(texto, principal ? EstiloBotao.Primario : EstiloBotao.Contorno) { AutoSize = true };
         }
 
         void Preencher()
@@ -118,7 +112,7 @@ namespace PreenchedorBRMED
             }
             if (p.Campos == null) return;
             foreach (var c in p.Campos)
-                listaCampos.Items.Add(new ListViewItem(new[] { Dados.Rotulo(p.FormularioId, c.Dado), c.Descricao ?? "", c.Identificacao }) { Tag = c });
+                listaCampos.Items.Add(new ListViewItem(new[] { Dados.Rotulo(p.FormularioId, c.Dado) + (c.Captura ? "  (captura)" : ""), c.Descricao ?? "", c.Identificacao }) { Tag = c });
         }
 
         void TrocarFormulario()
@@ -132,8 +126,8 @@ namespace PreenchedorBRMED
             };
             escolha.SelectedItem = modelos.FirstOrDefault(m => m.Id == RepositorioFormularios.Obter(p.FormularioId).Id);
 
-            var ok = new Button { Text = "Usar este formulário", AutoSize = true, DialogResult = DialogResult.OK };
-            var cancelar = new Button { Text = "Cancelar", AutoSize = true, DialogResult = DialogResult.Cancel };
+            var ok = new BotaoMarca("Usar este formulário", EstiloBotao.Primario) { AutoSize = true, DialogResult = DialogResult.OK };
+            var cancelar = new BotaoMarca("Cancelar", EstiloBotao.Contorno) { AutoSize = true, DialogResult = DialogResult.Cancel };
             var botoes = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Padding = new Padding(0, 10, 0, 0) };
             botoes.Controls.Add(ok);
             botoes.Controls.Add(cancelar);

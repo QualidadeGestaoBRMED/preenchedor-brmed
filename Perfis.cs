@@ -50,6 +50,8 @@ namespace PreenchedorBRMED
         /// <summary>Último recurso: posição entre os campos do mesmo tipo na janela (-1 = não usa).</summary>
         [DataMember(Order = 5)] public int Indice { get; set; }
         [DataMember(Order = 6, EmitDefaultValue = false)] public string Descricao { get; set; }
+        /// <summary>true = o campo é lido com Ctrl+Alt+C (alimenta o formulário); false = recebe o dado com Ctrl+Alt+V.</summary>
+        [DataMember(Order = 7, EmitDefaultValue = false)] public bool Captura { get; set; }
 
         public string Identificacao
         {
@@ -63,7 +65,7 @@ namespace PreenchedorBRMED
 
         public bool MesmoCampo(CampoMapeado outro)
         {
-            return outro != null && Tipo == outro.Tipo && Indice == outro.Indice
+            return outro != null && Captura == outro.Captura && Tipo == outro.Tipo && Indice == outro.Indice
                 && AutomationId == outro.AutomationId && NomeControle == outro.NomeControle;
         }
     }
@@ -102,6 +104,15 @@ namespace PreenchedorBRMED
         public static Perfil PerfilDeMapeamento(string processo, string titulo)
         {
             return Todos().FirstOrDefault(p => p.Atende(processo, titulo) && !p.PorTeclado);
+        }
+
+        /// <summary>O perfil com campos de captura que vale para esta janela (null se não há).</summary>
+        public static Perfil Capturavel(string processo, string titulo)
+        {
+            return Todos()
+                .Where(p => p.Atende(processo, titulo) && !p.PorTeclado && p.Campos != null && p.Campos.Any(c => c.Captura))
+                .OrderByDescending(p => string.IsNullOrEmpty(p.TituloContem) ? 0 : 1)
+                .FirstOrDefault();
         }
 
         /// <summary>Grava (ou substitui) o mapeamento de um campo, criando o perfil se preciso.</summary>

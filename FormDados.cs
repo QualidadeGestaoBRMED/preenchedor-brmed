@@ -14,10 +14,9 @@ namespace PreenchedorBRMED
         readonly Dictionary<string, Dictionary<string, string>> rascunhos = new Dictionary<string, Dictionary<string, string>>();
         readonly Panel campos;
         readonly Panel rodape;
-        readonly ComboBox seletor;
+        readonly RotuloQuebra titulo;
         readonly RotuloQuebra erro;
         ModeloFormulario modelo;
-        bool montando;
 
         public FormDados()
         {
@@ -36,71 +35,30 @@ namespace PreenchedorBRMED
             KeyPreview = true;
 
             // ----- Cabeçalho -----
-            var topo = new Panel { Dock = DockStyle.Top, BackColor = Tema.Marinho, Padding = new Padding(24, 16, 24, 14) };
-            var titulo = new RotuloQuebra
+            var topo = new Panel { Dock = DockStyle.Top, BackColor = Color.White, Padding = new Padding(24, 20, 24, 16) };
+            topo.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Tema.Linha), 0, topo.Height - 1, topo.Width, topo.Height - 1);
+            titulo = new RotuloQuebra
             {
-                Text = "Dados para preencher", ForeColor = Color.White, Font = Tema.Titulo(14f),
-                Dock = DockStyle.Top, Padding = new Padding(0, 0, 0, 4)
+                ForeColor = Tema.Marinho, Font = Tema.Titulo(15f), Dock = DockStyle.Top
             };
-            var subtitulo = new RotuloQuebra
-            {
-                Text = "Preencha uma vez. Depois, em cada sistema, use Ctrl+Alt+V.",
-                ForeColor = ColorTranslator.FromHtml("#C9DCE4"), Font = Tema.Texto(9.5f), Dock = DockStyle.Top
-            };
-            topo.Controls.Add(subtitulo);
             topo.Controls.Add(titulo);
-            Action ajustarTopo = () => topo.Height = titulo.Height + subtitulo.Height + topo.Padding.Vertical;
-            titulo.Resize += (s, e) => ajustarTopo();
-            subtitulo.Resize += (s, e) => ajustarTopo();
-            topo.Height = 84;
-
-            // ----- Escolha do formulário -----
-            var seletorPainel = new Panel { Dock = DockStyle.Top, Height = 52 };
-            var esquerda = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 12, 8, 0) };
-            seletor = new ComboBox
-            {
-                Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList, Font = Tema.Texto(10.5f),
-                DisplayMember = "Nome", AccessibleName = "Formulário"
-            };
-            seletor.DropDownWidth = 320;
-            esquerda.Controls.Add(seletor);
-            var direita = new Panel { Dock = DockStyle.Right, Width = 140, Padding = new Padding(0, 10, 24, 8) };
-            var gerenciar = new Button
-            {
-                Text = "Gerenciar…", Dock = DockStyle.Fill, Font = Tema.Texto(9.5f), FlatStyle = FlatStyle.Flat,
-                ForeColor = Tema.Petroleo, BackColor = Color.White, UseMnemonic = false
-            };
-            gerenciar.FlatAppearance.BorderColor = Tema.Petroleo;
-            gerenciar.Click += (s, e) => FormModelos.Abrir();
-            direita.Controls.Add(gerenciar);
-            seletorPainel.Controls.Add(esquerda);
-            seletorPainel.Controls.Add(direita);
-            seletor.SelectedIndexChanged += (s, e) =>
-            {
-                if (montando) return;
-                GuardarRascunho();
-                Montar((ModeloFormulario)seletor.SelectedItem);
-            };
+            titulo.Resize += (s, e) => topo.Height = titulo.Height + topo.Padding.Vertical;
+            topo.Height = 64;
 
             // ----- Campos (rolagem automática quando a janela é pequena) -----
-            campos = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(24, 8, 24, 0) };
+            campos = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(24, 20, 24, 0) };
 
             // ----- Rodapé -----
             rodape = new Panel { Dock = DockStyle.Bottom, Height = 64 };
             erro = new RotuloQuebra
             {
-                ForeColor = Tema.Cobre, Font = Tema.Texto(9.5f), Dock = DockStyle.Top,
+                ForeColor = Tema.Perigo, Font = Tema.Texto(9.5f), Dock = DockStyle.Top,
                 Padding = new Padding(24, 0, 24, 6), Visible = false
             };
             erro.Resize += (s, e) => AjustarRodape();
             var botoes = new Panel { Dock = DockStyle.Bottom, Height = 64, Padding = new Padding(24, 12, 24, 12) };
 
-            var limpar = new Button
-            {
-                Text = "Limpar dados", Font = Tema.Texto(10f), FlatStyle = FlatStyle.Flat, Dock = DockStyle.Left,
-                ForeColor = Tema.Suave, BackColor = Color.White, Width = 130
-            };
-            limpar.FlatAppearance.BorderColor = Tema.Linha;
+            var limpar = new BotaoMarca("Limpar dados", EstiloBotao.Contorno) { Dock = DockStyle.Left, Width = 130 };
             limpar.Click += (s, e) =>
             {
                 Dados.Limpar(modelo.Id);
@@ -112,12 +70,7 @@ namespace PreenchedorBRMED
                 Aviso.Mostrar("Dados apagados.");
             };
 
-            var salvar = new Button
-            {
-                Text = "Salvar dados", Font = Tema.TextoForte(10f), FlatStyle = FlatStyle.Flat, Dock = DockStyle.Right,
-                ForeColor = Color.White, BackColor = Tema.Petroleo, Width = 150
-            };
-            salvar.FlatAppearance.BorderSize = 0;
+            var salvar = new BotaoMarca("Salvar dados", EstiloBotao.Primario) { Dock = DockStyle.Right, Width = 150 };
             salvar.Click += (s, e) => Salvar();
 
             botoes.Controls.Add(salvar);
@@ -128,32 +81,28 @@ namespace PreenchedorBRMED
 
             // A ordem importa: o controle que preenche vem primeiro, as bordas depois.
             Controls.Add(campos);
-            Controls.Add(seletorPainel);
             Controls.Add(rodape);
             Controls.Add(topo);
 
-            CarregarLista(Dados.FormularioAtivo);
+            Selecionar(RepositorioFormularios.IdPrincipal);
             RepositorioFormularios.Alterado += Recarregar;
         }
 
         // ---------- Formulários ----------
 
-        void CarregarLista(string idPreferido)
+        /// <summary>Mostra o formulário pedido (o principal, se ele não existir mais), guardando o que estava digitado.</summary>
+        public void Selecionar(string id)
         {
-            montando = true;
-            var todos = RepositorioFormularios.Todos();
-            seletor.DataSource = todos;
-            var escolhido = todos.FirstOrDefault(m => m.Id == idPreferido) ?? todos[0];
-            seletor.SelectedItem = escolhido;
-            montando = false;
-            Montar(escolhido);
+            var alvo = RepositorioFormularios.Obter(id);
+            if (modelo != null) GuardarRascunho();
+            Montar(alvo);
         }
 
         /// <summary>Chamado quando o editor de formulários salva alguma mudança.</summary>
         void Recarregar()
         {
             GuardarRascunho();
-            CarregarLista(modelo == null ? Dados.FormularioAtivo : modelo.Id);
+            Selecionar(modelo == null ? RepositorioFormularios.IdPrincipal : modelo.Id);
         }
 
         void GuardarRascunho()
@@ -166,6 +115,7 @@ namespace PreenchedorBRMED
         {
             modelo = m;
             Dados.FormularioAtivo = m.Id;
+            titulo.Text = m.Nome;
             MostrarErro("");
 
             campos.SuspendLayout();
@@ -193,9 +143,21 @@ namespace PreenchedorBRMED
         {
             var caixa = new TextBox
             {
-                Name = "txt_" + campo.Chave, Font = Tema.Texto(11f), BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Tema.Fundo, ForeColor = Tema.Marinho, Dock = DockStyle.Bottom, AccessibleName = campo.Rotulo
+                Name = "txt_" + campo.Chave, Font = Tema.Texto(11f), BorderStyle = BorderStyle.None,
+                BackColor = Color.White, ForeColor = Tema.TextoCorpo, Dock = DockStyle.Fill, AccessibleName = campo.Rotulo
             };
+            // Borda cinza do guia (#BFC3C6), petróleo quando o campo está em foco.
+            var moldura = new Panel { Dock = DockStyle.Bottom, BackColor = Color.White, Padding = new Padding(10, 9, 10, 7) };
+            moldura.Height = caixa.PreferredHeight + moldura.Padding.Vertical;
+            moldura.Paint += (s, e) =>
+            {
+                using (var caneta = new Pen(caixa.Focused ? Tema.Petroleo : Tema.LinhaForte))
+                    e.Graphics.DrawRectangle(caneta, 0, 0, moldura.Width - 1, moldura.Height - 1);
+            };
+            caixa.Enter += (s, e) => moldura.Invalidate();
+            caixa.Leave += (s, e) => moldura.Invalidate();
+            moldura.Click += (s, e) => caixa.Focus();
+            moldura.Controls.Add(caixa);
             if (campo.EhCpf)
             {
                 caixa.MaxLength = 14;
@@ -205,21 +167,23 @@ namespace PreenchedorBRMED
                     if (formatado != caixa.Text) { caixa.Text = formatado; caixa.SelectionStart = formatado.Length; }
                 };
             }
+            if (campo.EhNumero)
+                caixa.KeyPress += (s, e) => { if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar)) e.Handled = true; };
+            if (campo.EhRg || campo.EhPassaporte) caixa.MaxLength = 20;
             caixas[campo.Chave] = caixa;
 
-            // O rótulo quebra linha conforme a largura da janela; a bolinha fica na margem esquerda dele.
+            // O rótulo quebra linha conforme a largura da janela.
             var rotulo = new RotuloQuebra
             {
                 Text = campo.Rotulo + (campo.Obrigatorio ? " (obrigatório)" : ""),
                 Font = Tema.TextoForte(9.5f), ForeColor = Tema.Marinho,
-                Dock = DockStyle.Top, Padding = new Padding(16, 0, 0, 6)
+                Dock = DockStyle.Top, Padding = new Padding(0, 0, 0, 6)
             };
-            rotulo.Controls.Add(new PictureBox { Image = Tema.Bolinha(Dados.CorDoCampo(m, campo)), Size = new Size(10, 10), Location = new Point(0, 4) });
 
             var bloco = new Panel { Dock = DockStyle.Top, Padding = new Padding(0, 0, 0, 14) };
-            bloco.Controls.Add(caixa);
+            bloco.Controls.Add(moldura);
             bloco.Controls.Add(rotulo);
-            Action ajustar = () => bloco.Height = rotulo.Height + caixa.Height + bloco.Padding.Vertical;
+            Action ajustar = () => bloco.Height = rotulo.Height + moldura.Height + bloco.Padding.Vertical;
             rotulo.Resize += (s, e) => ajustar();
             ajustar();
             return bloco;
@@ -272,6 +236,7 @@ namespace PreenchedorBRMED
             {
                 var texto = caixas[campo.Chave].Text.Trim();
                 if (campo.EhCpf) texto = Dados.SomenteDigitos(texto);
+                else if (campo.EhPassaporte) texto = texto.ToUpperInvariant();
                 novo[campo.Chave] = texto;
 
                 if (texto == "")
@@ -282,6 +247,12 @@ namespace PreenchedorBRMED
                     marcar(campo, "\"" + campo.Rotulo + "\" não parece um e-mail válido.");
                 else if (campo.EhCpf && !Dados.CpfValido(texto))
                     marcar(campo, "\"" + campo.Rotulo + "\" não é um CPF válido. Confira os dígitos.");
+                else if (campo.EhNumero && Dados.SomenteDigitos(texto) != texto)
+                    marcar(campo, "\"" + campo.Rotulo + "\" deve ter apenas números.");
+                else if (campo.EhRg && Dados.SomenteAlfanumerico(texto).Length < 5)
+                    marcar(campo, "\"" + campo.Rotulo + "\" não parece um RG válido.");
+                else if (campo.EhPassaporte && !System.Text.RegularExpressions.Regex.IsMatch(texto, @"^[A-Za-z0-9]{5,12}$"))
+                    marcar(campo, "\"" + campo.Rotulo + "\" não parece um passaporte válido (letras e números, de 5 a 12 caracteres).");
             }
 
             if (problemas.Count == 0 && modelo.Campos.Count > 0 && novo.Values.All(v => v == ""))
@@ -296,8 +267,25 @@ namespace PreenchedorBRMED
 
             Dados.Salvar(modelo.Id, novo);
             rascunhos.Remove(modelo.Id);
-            Close();
+            MostrarErro("");
             Aviso.Mostrar("Dados de \"" + modelo.Nome + "\" salvos. Agora vá a cada sistema e use Ctrl+Alt+V.");
+        }
+
+        /// <summary>Coloca nos campos o que foi capturado de outro sistema (Ctrl+Alt+C), sem salvar.</summary>
+        public void Receber(string formularioId, Dictionary<string, string> valores)
+        {
+            var alvo = RepositorioFormularios.Obter(formularioId);
+            if (modelo == null || modelo.Id != alvo.Id) Selecionar(alvo.Id);
+            foreach (var par in valores)
+            {
+                TextBox caixa;
+                if (!caixas.TryGetValue(par.Key, out caixa)) continue;
+                var campo = modelo.Campo(par.Key);
+                caixa.Text = campo != null && campo.EhCpf ? Dados.FormatarCpf(par.Value) : par.Value;
+            }
+            MostrarErro("");
+            var primeira = caixas.Values.FirstOrDefault();
+            if (primeira != null) primeira.Focus();
         }
     }
 }

@@ -47,13 +47,13 @@ namespace PreenchedorBRMED
         // ---------- Método "uia" ----------
         static void ColarPorAutomacao(Perfil perfil, IntPtr janela, Resultado r)
         {
-            if (perfil.Campos == null || perfil.Campos.Count == 0)
+            if (perfil.Campos == null || !perfil.Campos.Any(c => !c.Captura))
             {
                 r.Erro = "O perfil \"" + perfil.Nome + "\" ainda não tem campos. Aponte o mouse para um campo e use Ctrl+Alt+M.";
                 return;
             }
             var raiz = AutomationElement.FromHandle(janela);
-            foreach (var campo in perfil.Campos)
+            foreach (var campo in perfil.Campos.Where(c => !c.Captura))
             {
                 string rotulo = Dados.Rotulo(perfil.FormularioId, campo.Dado);
                 string valor = Dados.Valor(perfil.FormularioId, campo.Dado);
