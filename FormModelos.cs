@@ -151,8 +151,10 @@ namespace PreenchedorBRMED
             grade.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
 
             var colRotulo = new DataGridViewTextBoxColumn { HeaderText = "Rótulo (como aparece no formulário)", FillWeight = 100, MinimumWidth = 120 };
-            var colTipo = new DataGridViewComboBoxColumn { HeaderText = "Tipo", FillWeight = 38, MinimumWidth = 80, FlatStyle = FlatStyle.Flat };
+            var colTipo = new DataGridViewComboBoxColumn { HeaderText = "Tipo", FillWeight = 38, MinimumWidth = 110, FlatStyle = FlatStyle.Flat };
             colTipo.Items.AddRange(NomesTipo);
+            // A lista suspensa abre com a largura do texto mais longo, mesmo com a coluna estreita.
+            colTipo.DropDownWidth = NomesTipo.Max(n => TextRenderer.MeasureText(n, Font).Width) + SystemInformation.VerticalScrollBarWidth + 12;
             var colObrig = new DataGridViewCheckBoxColumn { HeaderText = "Obrigatório", FillWeight = 32, MinimumWidth = 80 };
             grade.Columns.AddRange(colRotulo, colTipo, colObrig);
 
