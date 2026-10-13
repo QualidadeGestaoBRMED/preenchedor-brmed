@@ -1,0 +1,164 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
+using System.Text;
+
+namespace PreenchedorBRMED
+{
+    /// <summary>Um campo de um formulário criado pelo colaborador. A Chave não muda, mesmo que o rótulo seja renomeado.</summary>
+    [DataContract]
+    class CampoForm
+    {
+        public const string TipoTexto = "texto", TipoEmail = "email", TipoCpf = "cpf";
+
+        [DataMember(Order = 1)] public string Chave { get; set; }
+        [DataMember(Order = 2)] public string Rotulo { get; set; }
+        [DataMember(Order = 3)] public string Tipo { get; set; }
+        [DataMember(Order = 4)] public bool Obrigatorio { get; set; }
+
+        public bool EhCpf { get { return string.Equals(Tipo, TipoCpf, StringComparison.OrdinalIgnoreCase); } }
+        public bool EhEmail { get { return string.Equals(Tipo, TipoEmail, StringComparison.OrdinalIgnoreCase); } }
+    }
+
+    /// <summary>Conjunto de campos que o colaborador preenche de uma vez (ex.: "Cadastro", "Admissão").</summary>
+    [DataContract]
+    class ModeloFormulario
+    {
+        [DataMember(Order = 1)] public string Id { get; set; }
+        [DataMember(Order = 2)] public string Nome { get; set; }
+        [DataMember(Order = 3)] public List<CampoForm> Campos { get; set; }
+
+        public CampoForm Campo(string chave)
+        {
+            return Campos == null ? null : Campos.FirstOrDefault(c => c.Chave == chave);
+        }
+
+        public ModeloFormulario Clonar()
+        {
+            return new ModeloFormulario
+            {
+                Id = Id, Nome = Nome,
+                Campos = (Campos ?? new List<CampoForm>())
+                    .Select(c => new CampoForm { Chave = c.Chave, Rotulo = c.Rotulo, Tipo = c.Tipo, Obrigatorio = c.Obrigatorio })
+                    .ToList()
+            };
+        }
+
+        /// <summary>Gera uma chave estável a partir do rótulo, sem repetir as já usadas.</summary>
+        public string NovaChave(string rotulo)
+        {
+            var sb = new StringBuilder();
+            foreach (var ch in (rotulo ?? "").Normalize(NormalizationForm.FormD))
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark) continue;
+                var c = char.ToLowerInvariant(ch);
+                if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) sb.Append(c);
+                else if (sb.Length > 0 && sb[sb.Length - 1] != '_') sb.Append('_');
+            }
+            var baseChave = sb.ToString().Trim('_');
+            if (baseChave == "") baseChave = "campo";
+
+            var usadas = new HashSet<string>((Campos ?? new List<CampoForm>()).Select(c => c.Chave));
+            var chave = baseChave;
+            // "_numeros" é reservado para a versão só-números do CPF.
+            for (int i = 2; usadas.Contains(chave) || chave.EndsWith("_numeros"); i++) chave = baseChave + "_" + i;
+            return chave;
+        }
+    }
+
+    /// <summary>
+    /// Lê e grava os formulários em %AppData%\BRMED\PreenchedorDeCadastro\formularios.json.
+    /// Só a estrutura (nomes e tipos dos campos) é gravada, nunca os dados do colaborador.
+    /// </summary>
+    static class RepositorioFormularios
+    {
+        public const string IdPadrao = "padrao";
+        public static readonly string Caminho = Path.Combine(RepositorioPerfis.Pasta, "formularios.json");
+
+        /// <summary>Disparado depois de salvar, para as telas abertas se atualizarem.</summary>
+        public static event Action Alterado;
+
+        static readonly object trava = new object();
+        static List<ModeloFormulario> modelos;
+
+        public static List<ModeloFormulario> Todos()
+        {
+            lock (trava)
+            {
+                if (modelos == null) modelos = Carregar();
+                return modelos.ToList();
+            }
+        }
+
+        /// <summary>Devolve o formulário pedido; se ele não existir mais, o padrão.</summary>
+        public static ModeloFormulario Obter(string id)
+        {
+            var todos = Todos();
+            return todos.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase))
+                ?? todos.First(m => m.Id == IdPadrao);
+        }
+
+        public static void Salvar(List<ModeloFormulario> lista)
+        {
+            lock (trava)
+            {
+                modelos = lista.ToList();
+                Gravar(modelos);
+            }
+            var aviso = Alterado;
+            if (aviso != null) aviso();
+        }
+
+        static List<ModeloFormulario> Carregar()
+        {
+            List<ModeloFormulario> lista = null;
+            try
+            {
+                if (File.Exists(Caminho))
+                    using (var fluxo = File.OpenRead(Caminho))
+                        lista = (List<ModeloFormulario>)new DataContractJsonSerializer(typeof(List<ModeloFormulario>)).ReadObject(fluxo);
+            }
+            catch (Exception erro)
+            {
+                Aviso.Mostrar("Não consegui ler formularios.json: " + erro.Message, true);
+            }
+
+            bool criar = lista == null || lista.Count == 0;
+            if (criar) lista = new List<ModeloFormulario>();
+            lista.RemoveAll(m => m == null || string.IsNullOrEmpty(m.Id));
+            foreach (var m in lista) if (m.Campos == null) m.Campos = new List<CampoForm>();
+            if (!lista.Any(m => m.Id == IdPadrao)) { lista.Insert(0, Padrao()); criar = true; }
+            if (criar) Gravar(lista);
+            return lista;
+        }
+
+        static void Gravar(List<ModeloFormulario> lista)
+        {
+            Directory.CreateDirectory(RepositorioPerfis.Pasta);
+            using (var fluxo = File.Create(Caminho))
+            using (var escritor = JsonReaderWriterFactory.CreateJsonWriter(fluxo, Encoding.UTF8, false, true, "  "))
+                new DataContractJsonSerializer(typeof(List<ModeloFormulario>)).WriteObject(escritor, lista);
+        }
+
+        static ModeloFormulario Padrao()
+        {
+            return new ModeloFormulario
+            {
+                Id = IdPadrao,
+                Nome = "Cadastro padrão",
+                Campos = new List<CampoForm>
+                {
+                    new CampoForm { Chave = "nome",   Rotulo = "Nome",   Tipo = CampoForm.TipoTexto, Obrigatorio = true },
+                    new CampoForm { Chave = "email",  Rotulo = "E-mail", Tipo = CampoForm.TipoEmail },
+                    new CampoForm { Chave = "funcao", Rotulo = "Função", Tipo = CampoForm.TipoTexto },
+                    new CampoForm { Chave = "setor",  Rotulo = "Setor",  Tipo = CampoForm.TipoTexto },
+                    new CampoForm { Chave = "cpf",    Rotulo = "CPF",    Tipo = CampoForm.TipoCpf },
+                }
+            };
+        }
+    }
+}

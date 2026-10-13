@@ -1,0 +1,5 @@
+saida/
+bin/
+obj/
+.vs/
+*.user

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- .NET Framework 4.8 já vem instalado no Windows 10 e 11: o colaborador não instala nada. -->
+    <TargetFramework>net48</TargetFramework>
+    <!-- C# 5 para compilar também com o csc.exe que já vem no Windows (compilar.bat). -->
+    <LangVersion>5</LangVersion>
+    <AssemblyName>PreenchedorBRMED</AssemblyName>
+    <RootNamespace>PreenchedorBRMED</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Version>0.1.0</Version>
+    <Company>BR MED</Company>
+    <Product>Preenchedor de Cadastro</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationTypes" />
+    <Reference Include="WindowsBase" />
+  </ItemGroup>
+
+</Project>
