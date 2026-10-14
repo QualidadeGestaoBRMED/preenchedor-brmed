@@ -78,6 +78,13 @@ namespace PreenchedorBRMED
                 opcoes.SuspendLayout();
                 foreach (var antigo in opcoes.Controls.Cast<Control>().ToList()) { opcoes.Controls.Remove(antigo); antigo.Dispose(); }
 
+                if (modelo.Campos.Count == 0)
+                    opcoes.Controls.Add(new Label
+                    {
+                        Text = "Este formulário ainda não tem campos. Adicione-os em Gerenciar formulários.", Font = Tema.Texto(8.5f), ForeColor = Tema.Suave,
+                        AutoSize = true, MaximumSize = new Size(230, 0), Margin = new Padding(0, 0, 0, 8)
+                    });
+
                 foreach (var d in Dados.Destinos(modelo))
                 {
                     var atual = jaMapeado != null && jaMapeado.Dado == d.Chave;
@@ -110,7 +117,7 @@ namespace PreenchedorBRMED
                 opcoes.ResumeLayout(true);
             };
             montar();
-            if (seletor != null) seletor.SelectedIndexChanged += (s, e) => { montar(); Posicionar(perto); };
+            if (seletor != null) seletor.SelectedIndexChanged += (s, e) => { montar(); PerformLayout(); Posicionar(perto); };
 
             Controls.Add(painel);
             AutoSize = true;
@@ -123,8 +130,10 @@ namespace PreenchedorBRMED
         void Posicionar(Point perto)
         {
             var area = Screen.FromPoint(perto).WorkingArea;
-            int x = Math.Min(perto.X + 16, area.Right - Width - 8);
-            int y = Math.Min(perto.Y + 16, area.Bottom - Height - 8);
+            // O tamanho preferido já considera os botões recém-criados; Width/Height ainda podem estar defasados.
+            var tamanho = new Size(Math.Max(Width, PreferredSize.Width), Math.Max(Height, PreferredSize.Height));
+            int x = Math.Min(perto.X + 16, area.Right - tamanho.Width - 8);
+            int y = Math.Min(perto.Y + 16, area.Bottom - tamanho.Height - 8);
             Location = new Point(Math.Max(area.Left + 8, x), Math.Max(area.Top + 8, y));
         }
 
