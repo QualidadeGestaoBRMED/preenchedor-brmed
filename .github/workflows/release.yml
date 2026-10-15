@@ -1,0 +1,22 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar
+        shell: bash
+        run: dotnet build PreenchedorBRMED.csproj -c Release -p:Version="${GITHUB_REF_NAME#v}"
+      - name: Publicar release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" bin/Release/net48/PreenchedorBRMED.exe --title "$GITHUB_REF_NAME" --generate-notes
