@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -40,6 +41,7 @@ namespace PreenchedorBRMED
             var config = new ToolStripMenuItem("Configurações");
             config.DropDownItems.Add(principal);
             config.DropDownItems.Add("Atalhos…", null, (s, e) => AbrirAtalhos());
+            config.DropDownItems.Add(MontarMenuDiagnostico());
             menu.Items.Add(config);
             menu.Items.Add("Sistemas mapeados…", null, (s, e) => AbrirPerfis());
             menu.Items.Add("Abrir sistema de teste", null, (s, e) => new SistemaTeste().Show());
@@ -125,6 +127,27 @@ namespace PreenchedorBRMED
                 }
                 Sair();
             }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+        /// <summary>Liga o log temporário que registra por que um programa de terceiros recusou o preenchimento.</summary>
+        ToolStripMenuItem MontarMenuDiagnostico()
+        {
+            var menu = new ToolStripMenuItem("Modo diagnóstico");
+            var ligar = new ToolStripMenuItem("Ligar por 24 horas");
+            ligar.Click += (s, e) =>
+            {
+                if (Diagnostico.Ativo) { Diagnostico.Desligar(); Aviso.Mostrar("Modo diagnóstico desligado."); }
+                else { Diagnostico.Ligar(); Aviso.Mostrar("Modo diagnóstico ligado por 24 horas. Os valores digitados não são gravados."); }
+            };
+            menu.DropDownOpening += (s, e) => { ligar.Text = Diagnostico.Ativo ? "Desligar (está ligado)" : "Ligar por 24 horas"; };
+            menu.DropDownItems.Add(ligar);
+            menu.DropDownItems.Add("Abrir o log", null, (s, e) =>
+            {
+                if (File.Exists(Diagnostico.Caminho)) Process.Start("notepad.exe", "\"" + Diagnostico.Caminho + "\"");
+                else Aviso.Mostrar("Ainda não há log. Ligue o modo diagnóstico e repita o que deu erro.");
+            });
+            menu.DropDownItems.Add("Apagar o log", null, (s, e) => { Diagnostico.Apagar(); Aviso.Mostrar("Log apagado."); });
+            return menu;
         }
 
         void AtualizarMenu() { itemFormulario.Text = "Abrir formulário  (" + Atalhos.Texto(Acao.Formulario) + ")"; }

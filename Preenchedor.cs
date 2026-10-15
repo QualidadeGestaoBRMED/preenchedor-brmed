@@ -11,6 +11,7 @@ namespace PreenchedorBRMED
         public int Preenchidos;
         public List<string> NaoEncontrados = new List<string>();
         public List<string> SemValor = new List<string>();
+        public List<string> Falhas = new List<string>();
         public string Erro;
 
         public string Resumo()
@@ -18,11 +19,12 @@ namespace PreenchedorBRMED
             if (Erro != null) return Erro;
             var partes = new List<string> { Preenchidos == 1 ? "1 campo preenchido." : Preenchidos + " campos preenchidos." };
             if (NaoEncontrados.Count > 0) partes.Add("Não encontrei: " + string.Join(", ", NaoEncontrados) + ".");
+            if (Falhas.Count > 0) partes.Add("O programa recusou: " + string.Join("; ", Falhas) + ".");
             if (SemValor.Count > 0) partes.Add("Sem dado no formulário: " + string.Join(", ", SemValor) + ".");
             return string.Join(" ", partes);
         }
 
-        public bool Problema { get { return Erro != null || NaoEncontrados.Count > 0; } }
+        public bool Problema { get { return Erro != null || NaoEncontrados.Count > 0 || Falhas.Count > 0; } }
     }
 
     /// <summary>Cola os dados nos campos de uma janela. Sempre chamado fora da thread da interface.</summary>
@@ -59,9 +61,24 @@ namespace PreenchedorBRMED
                 string valor = Dados.Valor(perfil.FormularioId, campo.Dado);
                 if (string.IsNullOrEmpty(valor)) { r.SemValor.Add(rotulo); continue; }
 
-                var elemento = Localizar(raiz, campo);
-                if (elemento == null || !Escrever(elemento, valor)) { r.NaoEncontrados.Add(rotulo); continue; }
-                r.Preenchidos++;
+                AutomationElement elemento = null;
+                try
+                {
+                    elemento = Localizar(raiz, campo);
+                    if (elemento == null || !Escrever(elemento, valor))
+                    {
+                        Diagnostico.Nota("não preencheu \"" + rotulo + "\" · " + (elemento == null ? "controle não localizado" : "controle desabilitado ou recusou a digitação")
+                            + " · mapeado como " + campo.Tipo + " id=" + campo.AutomationId + " nome=" + campo.NomeControle + " índice=" + campo.Indice);
+                        r.NaoEncontrados.Add(rotulo); continue;
+                    }
+                    r.Preenchidos++;
+                }
+                catch (Exception erro)
+                {
+                    // A UI Automation recusa a ação com mensagens genéricas; um campo recusado não deve parar os demais.
+                    r.Falhas.Add(rotulo + " (" + erro.GetType().Name + ": " + erro.Message + ")");
+                    Diagnostico.Falha("preenchimento", rotulo, campo, elemento, erro);
+                }
             }
         }
 
@@ -99,8 +116,11 @@ namespace PreenchedorBRMED
                 if (!vp.Current.IsReadOnly)
                 {
                     try { el.SetFocus(); } catch (InvalidOperationException) { }
-                    vp.SetValue(valor);
-                    return true;
+                    try { vp.SetValue(valor); Diagnostico.Nota("preenchido por ValuePattern · " + el.Current.ControlType.ProgrammaticName); return true; }
+                    catch (InvalidOperationException erro) // o programa recusou SetValue; tenta digitando
+                    {
+                        Diagnostico.Nota("ValuePattern.SetValue recusado (" + erro.Message + "); tentando digitar");
+                    }
                 }
             }
 
@@ -109,6 +129,7 @@ namespace PreenchedorBRMED
             Thread.Sleep(50);
             Teclado.SelecionarTudo();
             Teclado.Digitar(valor);
+            Diagnostico.Nota("preenchido digitando · " + el.Current.ControlType.ProgrammaticName);
             return true;
         }
 
