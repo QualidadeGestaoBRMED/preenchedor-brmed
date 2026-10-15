@@ -19,6 +19,7 @@ namespace PreenchedorBRMED
     {
         const string Repositorio = "QualidadeGestaoBRMED/preenchedor-brmed";
         const string NomeExe = "PreenchedorBRMED.exe";
+        const string PaginaLatest = "https://github.com/" + Repositorio + "/releases/latest";
         const string Prefixo = "https://github.com/" + Repositorio + "/releases/download/";
 
         public static string ArquivoNovo { get { return Application.ExecutablePath + ".novo"; } }
@@ -33,19 +34,20 @@ namespace PreenchedorBRMED
             }
         }
 
-        /// <summary>Devolve a versão mais nova publicada, ou null se já está atualizado. Lança exceção se estiver sem rede.</summary>
+        /// <summary>
+        /// Devolve a versão mais nova publicada, ou null se já está atualizado. Lança exceção se estiver sem rede.
+        /// Lê o redirecionamento de /releases/latest em vez da API, que limita 60 consultas por hora por IP
+        /// (um escritório inteiro costuma sair por um IP só).
+        /// </summary>
         public static Novidade Verificar()
         {
             // Compilado sem número de versão (compilar.bat): não há como comparar.
             if (VersaoAtual == new Version(0, 0, 0)) return null;
 
-            var json = Baixar("https://api.github.com/repos/" + Repositorio + "/releases/latest");
-            var tag = Regex.Match(json, "\"tag_name\"\\s*:\\s*\"v?([0-9][0-9.]*)\"");
-            var url = Regex.Match(json, "\"browser_download_url\"\\s*:\\s*\"([^\"]*/" + Regex.Escape(NomeExe) + ")\"");
+            var tag = Regex.Match(DestinoDoRedirecionamento(PaginaLatest), "/releases/tag/(v?[0-9][0-9.]*)$");
             Version versao;
-            if (!tag.Success || !url.Success || !Version.TryParse(tag.Groups[1].Value, out versao)) return null;
-            if (versao <= VersaoAtual || !url.Groups[1].Value.StartsWith(Prefixo, StringComparison.Ordinal)) return null;
-            return new Novidade { Versao = versao, Url = url.Groups[1].Value };
+            if (!tag.Success || !Version.TryParse(tag.Groups[1].Value.TrimStart('v'), out versao) || versao <= VersaoAtual) return null;
+            return new Novidade { Versao = versao, Url = Prefixo + tag.Groups[1].Value + "/" + NomeExe };
         }
 
         /// <summary>Baixa o .exe novo para ao lado do atual.</summary>
@@ -91,16 +93,16 @@ namespace PreenchedorBRMED
             ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; // TLS 1.2 não vem ligado por padrão no .NET 4.x
         }
 
-        static string Baixar(string url)
+        static string DestinoDoRedirecionamento(string url)
         {
             Preparar();
             var req = (HttpWebRequest)WebRequest.Create(url);
             req.UserAgent = "PreenchedorBRMED";
             req.Timeout = 15000;
+            req.AllowAutoRedirect = false;
             if (req.Proxy != null) req.Proxy.Credentials = CredentialCache.DefaultCredentials;
             using (var resp = req.GetResponse())
-            using (var leitor = new StreamReader(resp.GetResponseStream()))
-                return leitor.ReadToEnd();
+                return resp.Headers[HttpResponseHeader.Location] ?? "";
         }
 
         static bool ParecePrograma(string caminho)

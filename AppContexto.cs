@@ -79,7 +79,7 @@ namespace PreenchedorBRMED
             {
                 inicio.Stop();
                 VerificarAtualizacao(false);
-                var periodico = new System.Windows.Forms.Timer { Interval = 6 * 60 * 60 * 1000 };
+                var periodico = new System.Windows.Forms.Timer { Interval = 60 * 60 * 1000 };
                 periodico.Tick += (s2, e2) => VerificarAtualizacao(false);
                 periodico.Start();
             };
