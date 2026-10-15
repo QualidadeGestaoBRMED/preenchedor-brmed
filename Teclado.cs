@@ -46,6 +46,22 @@ namespace PreenchedorBRMED
             Enviar(new List<Nativo.INPUT> { Virtual(VK_CONTROL, false), Virtual(VK_A, false), Virtual(VK_A, true), Virtual(VK_CONTROL, true) });
         }
 
+        /// <summary>Clica com o botão esquerdo em (x, y) e devolve o cursor ao lugar de antes. Dá foco a controles que recusam SetFocus.</summary>
+        public static void Clicar(int x, int y)
+        {
+            const uint INPUT_MOUSE = 0, BAIXO = 0x2, CIMA = 0x4;
+            Nativo.POINT antes;
+            Nativo.GetCursorPos(out antes);
+            Nativo.SetCursorPos(x, y);
+            var baixo = new Nativo.INPUT { type = INPUT_MOUSE };
+            baixo.u.mi = new Nativo.MOUSEINPUT { dwFlags = BAIXO };
+            var cima = new Nativo.INPUT { type = INPUT_MOUSE };
+            cima.u.mi = new Nativo.MOUSEINPUT { dwFlags = CIMA };
+            Enviar(new List<Nativo.INPUT> { baixo, cima });
+            Thread.Sleep(80);
+            Nativo.SetCursorPos(antes.X, antes.Y);
+        }
+
         static void Enviar(List<Nativo.INPUT> entradas)
         {
             Nativo.SendInput((uint)entradas.Count, entradas.ToArray(), Marshal.SizeOf(typeof(Nativo.INPUT)));

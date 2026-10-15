@@ -125,7 +125,15 @@ namespace PreenchedorBRMED
             }
 
             // Plano B para campos sem ValuePattern: foca e digita por cima.
-            try { el.SetFocus(); } catch (InvalidOperationException) { return false; }
+            try { el.SetFocus(); }
+            catch (InvalidOperationException)
+            {
+                // Controles personalizados recusam SetFocus: foca com um clique no centro do campo.
+                var area = el.Current.BoundingRectangle;
+                if (area.IsEmpty || area.Width < 1 || area.Height < 1) return false;
+                Diagnostico.Nota("SetFocus recusado; focando com clique em " + (int)(area.X + area.Width / 2) + "," + (int)(area.Y + area.Height / 2));
+                Teclado.Clicar((int)(area.X + area.Width / 2), (int)(area.Y + area.Height / 2));
+            }
             Thread.Sleep(50);
             Teclado.SelecionarTudo();
             Teclado.Digitar(valor);
