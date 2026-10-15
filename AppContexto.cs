@@ -247,11 +247,18 @@ namespace PreenchedorBRMED
             Task.Run(() => Mapeador.Capturar(p.X, p.Y)).ContinueWith(t =>
             {
                 ocupado = false;
-                var c = t.Result;
-                if (c.Erro != null) { Aviso.Mostrar(c.Erro, true); return; }
-                if (formMapear != null && !formMapear.IsDisposed) formMapear.Close();
-                formMapear = new FormMapear(c, new Point(p.X, p.Y), paraCaptura);
-                formMapear.Show();
+                try
+                {
+                    var c = t.Result;
+                    if (c.Erro != null) { Aviso.Mostrar(c.Erro, true); return; }
+                    if (formMapear != null && !formMapear.IsDisposed) formMapear.Close();
+                    formMapear = new FormMapear(c, new Point(p.X, p.Y), paraCaptura);
+                    formMapear.Show();
+                }
+                catch (Exception erro)
+                {
+                    Aviso.Mostrar("Não consegui abrir o menu de mapeamento: " + erro.GetBaseException().Message, true);
+                }
             }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 

@@ -63,8 +63,10 @@ namespace PreenchedorBRMED
                 seletor = new ComboBox
                 {
                     DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Nome", Width = 230, Font = Tema.Texto(9.5f),
-                    Margin = new Padding(0, 0, 0, 8), Enabled = !travado, DataSource = modelos
+                    Margin = new Padding(0, 0, 0, 8), Enabled = !travado
                 };
+                // Items em vez de DataSource: o vínculo dispara SelectedIndexChanged antes de haver item selecionado.
+                seletor.Items.AddRange(modelos.Cast<object>().ToArray());
                 seletor.DropDownWidth = 320;
                 seletor.SelectedItem = modelos.FirstOrDefault(m => m.Id == idInicial) ?? modelos[0];
                 painel.Controls.Add(seletor);
@@ -73,7 +75,7 @@ namespace PreenchedorBRMED
 
             Action montar = () =>
             {
-                var modelo = seletor != null ? (ModeloFormulario)seletor.SelectedItem : modelos[0];
+                var modelo = (seletor != null ? seletor.SelectedItem as ModeloFormulario : null) ?? modelos[0];
                 Dados.FormularioAtivo = modelo.Id;
                 opcoes.SuspendLayout();
                 foreach (var antigo in opcoes.Controls.Cast<Control>().ToList()) { opcoes.Controls.Remove(antigo); antigo.Dispose(); }
@@ -117,7 +119,7 @@ namespace PreenchedorBRMED
                 opcoes.ResumeLayout(true);
             };
             montar();
-            if (seletor != null) seletor.SelectedIndexChanged += (s, e) => { montar(); PerformLayout(); Posicionar(perto); };
+            if (seletor != null) seletor.SelectedIndexChanged += (s, e) => { if (seletor.SelectedItem == null) return; montar(); PerformLayout(); Posicionar(perto); };
 
             Controls.Add(painel);
             AutoSize = true;
