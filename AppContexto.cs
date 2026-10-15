@@ -18,6 +18,8 @@ namespace PreenchedorBRMED
         FormMapear formMapear;
         FormAtalhos formAtalhos;
         ToolStripItem itemFormulario;
+        ToolStripItem itemAtualizar;
+        Novidade novidade;
         bool ocupado;
 
         public AppContexto()
@@ -42,6 +44,7 @@ namespace PreenchedorBRMED
             menu.Items.Add("Sistemas mapeados…", null, (s, e) => AbrirPerfis());
             menu.Items.Add("Abrir sistema de teste", null, (s, e) => new SistemaTeste().Show());
             menu.Items.Add(new ToolStripSeparator());
+            itemAtualizar = menu.Items.Add("Verificar atualizações", null, (s, e) => AoClicarAtualizar());
             menu.Items.Add("Apagar dados agora", null, (s, e) => { Dados.Limpar(); Aviso.Mostrar("Dados apagados."); });
             menu.Items.Add("Sair", null, (s, e) => Sair());
 
@@ -65,6 +68,63 @@ namespace PreenchedorBRMED
                 Aviso.Mostrar("Outro programa já usa " + string.Join(", ", falhas) + ". Esses atalhos não vão funcionar.", true);
             else
                 Aviso.Mostrar("Preenchedor ativo. " + Atalhos.Texto(Acao.Formulario) + " abre o formulário.");
+
+            IniciarVerificacaoAutomatica();
+        }
+
+        void IniciarVerificacaoAutomatica()
+        {
+            var inicio = new System.Windows.Forms.Timer { Interval = 20 * 1000 };
+            inicio.Tick += (s, e) =>
+            {
+                inicio.Stop();
+                VerificarAtualizacao(false);
+                var periodico = new System.Windows.Forms.Timer { Interval = 6 * 60 * 60 * 1000 };
+                periodico.Tick += (s2, e2) => VerificarAtualizacao(false);
+                periodico.Start();
+            };
+            inicio.Start();
+        }
+
+        /// <summary>Consulta as Releases fora da thread da interface; só fala com o usuário se achar versão nova (ou se ele pediu).</summary>
+        void VerificarAtualizacao(bool manual)
+        {
+            if (ocupado || novidade != null) return;
+            Task.Run(() => Atualizador.Verificar()).ContinueWith(t =>
+            {
+                if (t.Exception != null)
+                {
+                    if (manual) Aviso.Mostrar("Não consegui verificar atualizações. Confira a conexão com a internet.", true);
+                    return;
+                }
+                if (t.Result == null)
+                {
+                    if (manual) Aviso.Mostrar("Você já está na versão mais recente (" + Atualizador.VersaoAtual + ").");
+                    return;
+                }
+                novidade = t.Result;
+                itemAtualizar.Text = "Atualizar para a versão " + novidade.Versao;
+                Aviso.Mostrar("Há uma versão nova (" + novidade.Versao + "). Clique no ícone perto do relógio e escolha \"Atualizar\".");
+            }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+        void AoClicarAtualizar()
+        {
+            if (novidade == null) { VerificarAtualizacao(true); return; }
+            if (ocupado) return;
+            ocupado = true;
+            var alvo = novidade;
+            Aviso.Mostrar("Baixando a versão " + alvo.Versao + "…");
+            Task.Run(() => { Atualizador.Baixar(alvo); Atualizador.Instalar(); }).ContinueWith(t =>
+            {
+                ocupado = false;
+                if (t.Exception != null)
+                {
+                    Aviso.Mostrar("Não consegui atualizar: " + t.Exception.GetBaseException().Message, true);
+                    return;
+                }
+                Sair();
+            }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
         void AtualizarMenu() { itemFormulario.Text = "Abrir formulário  (" + Atalhos.Texto(Acao.Formulario) + ")"; }
