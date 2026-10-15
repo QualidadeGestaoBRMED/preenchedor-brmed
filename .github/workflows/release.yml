@@ -11,7 +11,7 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Compilar
         shell: bash
         run: dotnet build PreenchedorBRMED.csproj -c Release -p:Version="${GITHUB_REF_NAME#v}"
