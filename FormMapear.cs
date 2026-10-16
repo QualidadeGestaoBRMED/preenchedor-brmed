@@ -24,10 +24,8 @@ namespace PreenchedorBRMED
             var perfilAtual = RepositorioPerfis.PerfilDeMapeamento(captura.Processo, captura.TituloJanela);
             var jaMapeado = perfilAtual != null && perfilAtual.Campos != null
                 ? perfilAtual.Campos.FirstOrDefault(c => c.MesmoCampo(captura.Campo)) : null;
-            // Um sistema com campos já mapeados fica preso ao seu formulário; para trocar, use "Sistemas mapeados…".
+            // Sistema que já tem campos mapeados (possivelmente em outro formulário): ver a troca ao mapear.
             bool travado = perfilAtual != null && perfilAtual.Campos != null && perfilAtual.Campos.Count > 0;
-            var modelos = RepositorioFormularios.Todos();
-            var idInicial = perfilAtual != null && travado ? perfilAtual.FormularioId : Dados.FormularioAtivo;
 
             var painel = new FlowLayoutPanel
             {
@@ -52,31 +50,17 @@ namespace PreenchedorBRMED
                 AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = new Padding(0)
             };
 
-            ComboBox seletor = null;
-            if (modelos.Count > 1)
+            // O mapeamento vai sempre para o formulário principal (Configurações → Formulário principal).
+            var modelo = RepositorioFormularios.Obter(RepositorioFormularios.IdPrincipal);
+            painel.Controls.Add(new Label
             {
-                painel.Controls.Add(new Label
-                {
-                    Text = travado ? "Formulário deste sistema:" : (paraCaptura ? "Capturar para qual formulário?" : "Dados de qual formulário?"), Font = Tema.Texto(8.5f), ForeColor = Tema.Suave,
-                    AutoSize = true, MaximumSize = new Size(230, 0), Margin = new Padding(0, 0, 0, 2)
-                });
-                seletor = new ComboBox
-                {
-                    DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Nome", Width = 230, Font = Tema.Texto(9.5f),
-                    Margin = new Padding(0, 0, 0, 8), Enabled = !travado
-                };
-                // Items em vez de DataSource: o vínculo dispara SelectedIndexChanged antes de haver item selecionado.
-                seletor.Items.AddRange(modelos.Cast<object>().ToArray());
-                seletor.DropDownWidth = 320;
-                seletor.SelectedItem = modelos.FirstOrDefault(m => m.Id == idInicial) ?? modelos[0];
-                painel.Controls.Add(seletor);
-            }
+                Text = "Formulário: " + modelo.Nome, Font = Tema.Texto(8.5f), ForeColor = Tema.Suave,
+                AutoSize = true, MaximumSize = new Size(230, 0), Margin = new Padding(0, 0, 0, 8), UseMnemonic = false
+            });
             painel.Controls.Add(opcoes);
 
             Action montar = () =>
             {
-                var modelo = (seletor != null ? seletor.SelectedItem as ModeloFormulario : null) ?? modelos[0];
-                Dados.FormularioAtivo = modelo.Id;
                 opcoes.SuspendLayout();
                 foreach (var antigo in opcoes.Controls.Cast<Control>().ToList()) { opcoes.Controls.Remove(antigo); antigo.Dispose(); }
 
@@ -94,6 +78,18 @@ namespace PreenchedorBRMED
                     var chave = d.Chave;
                     b.Click += (s, e) =>
                     {
+                        // Um sistema mapeado antes em outro formulário passa para o principal (como em "Sistemas mapeados…").
+                        if (travado && modelo.Id != RepositorioFormularios.Obter(perfilAtual.FormularioId).Id)
+                        {
+                            var validos = Dados.Destinos(modelo).Select(x => x.Chave).ToList();
+                            int perdidos = perfilAtual.Campos.Count(x => !validos.Contains(x.Dado));
+                            if (perdidos > 0 && MessageBox.Show(this,
+                                    perdidos + (perdidos == 1 ? " campo já mapeado não existe" : " campos já mapeados não existem") + " no formulário \"" + modelo.Nome + "\" e será removido do mapeamento deste sistema. Continuar?",
+                                    "Trocar formulário", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                            perfilAtual.Campos.RemoveAll(x => !validos.Contains(x.Dado));
+                            perfilAtual.FormularioSalvo = modelo.Id == RepositorioFormularios.IdPadrao ? null : modelo.Id;
+                            RepositorioPerfis.SalvarTodos(RepositorioPerfis.Todos());
+                        }
                         captura.Campo.Dado = chave;
                         RepositorioPerfis.MapearCampo(captura.Processo, captura.TituloJanela, captura.Campo, modelo.Id);
                         Aviso.Mostrar(paraCaptura
@@ -119,7 +115,6 @@ namespace PreenchedorBRMED
                 opcoes.ResumeLayout(true);
             };
             montar();
-            if (seletor != null) seletor.SelectedIndexChanged += (s, e) => { if (seletor.SelectedItem == null) return; montar(); PerformLayout(); Posicionar(perto); };
 
             Controls.Add(painel);
             AutoSize = true;
