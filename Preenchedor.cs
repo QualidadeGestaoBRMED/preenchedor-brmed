@@ -12,6 +12,8 @@ namespace PreenchedorBRMED
         public List<string> NaoEncontrados = new List<string>();
         public List<string> SemValor = new List<string>();
         public List<string> Falhas = new List<string>();
+        /// <summary>Títulos das telas a que pertencem campos mapeados por posição que foram ignorados porque outra tela está aberta.</summary>
+        public List<string> OutrasTelas = new List<string>();
         public string Erro;
 
         public string Resumo()
@@ -21,6 +23,7 @@ namespace PreenchedorBRMED
             if (NaoEncontrados.Count > 0) partes.Add("Não encontrei: " + string.Join(", ", NaoEncontrados) + ".");
             if (Falhas.Count > 0) partes.Add("O programa recusou: " + string.Join("; ", Falhas) + ".");
             if (SemValor.Count > 0) partes.Add("Sem dado no formulário: " + string.Join(", ", SemValor) + ".");
+            if (Preenchidos == 0 && OutrasTelas.Count > 0) partes.Add("Estes campos são da tela \"" + string.Join("\" ou \"", OutrasTelas) + "\": abra-a e cole de novo.");
             return string.Join(" ", partes);
         }
 
@@ -55,29 +58,41 @@ namespace PreenchedorBRMED
                 return;
             }
             var raiz = AutomationElement.FromHandle(janela);
-            // Uma única leitura da janela (com cache) em vez de uma busca na árvore por campo.
-            var inst = Instantaneo.Tirar(raiz);
+            // A leitura da janela (com cache) é a parte lenta: só é feita se algum campo precisar da automação.
+            Instantaneo inst = null;
             bool estruturaAnotada = false;
+            string tituloAtual = Nativo.TituloDaJanela(janela);
             foreach (var campo in perfil.Campos.Where(c => !c.Captura))
             {
                 string rotulo = Dados.Rotulo(perfil.FormularioId, campo.Dado);
-                string valor = Dados.Valor(perfil.FormularioId, campo.Dado);
-                if (string.IsNullOrEmpty(valor)) { r.SemValor.Add(rotulo); continue; }
+
+                // Opção de lista ("sexo|Feminino"): só é clicada quando o valor do campo é aquela opção.
+                string campoDado, opcao;
+                bool ehOpcao = Dados.EhOpcao(campo.Dado, out campoDado, out opcao);
+                string valor = Dados.Valor(perfil.FormularioId, ehOpcao ? campoDado : campo.Dado);
+                if (string.IsNullOrEmpty(valor))
+                {
+                    if (!ehOpcao) r.SemValor.Add(rotulo);
+                    continue;
+                }
+                if (ehOpcao && !Instantaneo.CasaOpcao(opcao, valor)) continue;
+
+                if (campo.Posicao)
+                {
+                    if (!string.Equals(campo.JanelaTitulo ?? "", tituloAtual ?? "", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!r.OutrasTelas.Contains(campo.JanelaTitulo)) r.OutrasTelas.Add(campo.JanelaTitulo);
+                        continue;
+                    }
+                    if (PreencherPorPosicao(janela, campo, ehOpcao ? null : valor)) r.Preenchidos++;
+                    else { Diagnostico.Nota("não preencheu \"" + rotulo + "\" · área da janela indisponível"); r.NaoEncontrados.Add(rotulo); }
+                    continue;
+                }
 
                 AutomationElement elemento = null;
                 try
                 {
-                    if (campo.Tipo == "RadioButton")
-                    {
-                        var opcao = inst.AcharOpcao(campo, valor);
-                        if (opcao == null || !SelecionarOpcao(opcao.El))
-                        {
-                            Diagnostico.Nota("não escolheu a opção \"" + valor + "\" de \"" + rotulo + "\" · mapeado a partir de \"" + campo.NomeControle + "\"");
-                            r.NaoEncontrados.Add(rotulo); continue;
-                        }
-                        r.Preenchidos++;
-                        continue;
-                    }
+                    if (inst == null) inst = Instantaneo.Tirar(raiz);
                     elemento = Localizar(inst, raiz, campo);
                     if (elemento == null || !Escrever(elemento, valor))
                     {
@@ -99,6 +114,24 @@ namespace PreenchedorBRMED
                     Diagnostico.Falha("preenchimento", rotulo, campo, elemento, erro);
                 }
             }
+        }
+
+        /// <summary>
+        /// Clica na posição guardada (fração da área interna da janela) e, para campos de texto, digita o valor por cima.
+        /// Sem consulta à árvore de acessibilidade, então é rápido mesmo em programas Qt. valor null = só clicar (opção).
+        /// </summary>
+        static bool PreencherPorPosicao(IntPtr janela, CampoMapeado campo, string valor)
+        {
+            int ox, oy, largura, altura;
+            if (!Nativo.AreaCliente(janela, out ox, out oy, out largura, out altura)) return false;
+            Teclado.Clicar(ox + (int)Math.Round(campo.PosX * largura), oy + (int)Math.Round(campo.PosY * altura));
+            if (valor != null)
+            {
+                Thread.Sleep(30);
+                Teclado.SelecionarTudo();
+                Teclado.Digitar(valor);
+            }
+            return true;
         }
 
         /// <summary>Resolve o campo no instantâneo da janela (rápido); só controles personalizados usam a busca direta.</summary>
@@ -141,27 +174,6 @@ namespace PreenchedorBRMED
                 return campo.Indice < todos.Count ? todos[campo.Indice] : null;
             }
             return null;
-        }
-
-        /// <summary>Marca uma opção (botão de rádio): pelo padrão de seleção e, se o programa não o oferece, com um clique.</summary>
-        static bool SelecionarOpcao(AutomationElement el)
-        {
-            object padrao;
-            if (el.TryGetCurrentPattern(SelectionItemPattern.Pattern, out padrao))
-            {
-                try
-                {
-                    var item = (SelectionItemPattern)padrao;
-                    item.Select();
-                    if (item.Current.IsSelected) return true;
-                }
-                catch (InvalidOperationException) { }
-            }
-            var area = el.Current.BoundingRectangle;
-            if (area.IsEmpty || area.Width < 1 || area.Height < 1) return false;
-            Diagnostico.Nota("opção marcada com clique em " + (int)(area.X + area.Width / 2) + "," + (int)(area.Y + area.Height / 2));
-            Teclado.Clicar((int)(area.X + area.Width / 2), (int)(area.Y + area.Height / 2));
-            return true;
         }
 
         static bool Escrever(AutomationElement el, string valor)

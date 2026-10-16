@@ -174,40 +174,6 @@ namespace PreenchedorBRMED
 
         // ---------- Opções (botões de rádio) ----------
 
-        /// <summary>Os botões de rádio vizinhos do botão dado (a mesma pergunta: Masculino/Feminino, Sim/Não...).</summary>
-        public List<ItemUi> Grupo(ItemUi inicio)
-        {
-            var radios = DoTipo(ControlType.RadioButton).Where(r => !r.Area.IsEmpty).ToList();
-            var grupo = new List<ItemUi> { inicio };
-            bool cresceu = true;
-            while (cresceu)
-            {
-                cresceu = false;
-                foreach (var r in radios)
-                {
-                    if (grupo.Contains(r)) continue;
-                    if (grupo.Any(g => Vizinhos(g, r))) { grupo.Add(r); cresceu = true; }
-                }
-            }
-            return grupo.OrderBy(g => g.Topo).ThenBy(g => g.Esquerda).ToList();
-        }
-
-        static bool Vizinhos(ItemUi a, ItemUi b)
-        {
-            bool mesmaLinha = SobrepoeLinha(a, b) && Math.Max(a.Esquerda, b.Esquerda) - Math.Min(a.Direita, b.Direita) < 300;
-            double sobraH = Math.Min(a.Direita, b.Direita) - Math.Max(a.Esquerda, b.Esquerda);
-            bool mesmaColuna = sobraH > 0 && Math.Max(a.Topo, b.Topo) - Math.Min(a.Base, b.Base) < 40;
-            return mesmaLinha || mesmaColuna;
-        }
-
-        /// <summary>O botão de rádio do grupo do campo mapeado que corresponde ao valor (ex.: "Feminino").</summary>
-        public ItemUi AcharOpcao(CampoMapeado campo, string valor)
-        {
-            var ancora = DoTipo(ControlType.RadioButton).FirstOrDefault(r => Normalizar(r.Nome) == Normalizar(campo.NomeControle));
-            if (ancora == null) return null;
-            return Grupo(ancora).FirstOrDefault(r => CasaOpcao(r.Nome, valor));
-        }
-
         /// <summary>"Masculino" casa com "&amp;Masculino", "male", "M"...; outros valores comparam o texto.</summary>
         public static bool CasaOpcao(string opcao, string valor)
         {

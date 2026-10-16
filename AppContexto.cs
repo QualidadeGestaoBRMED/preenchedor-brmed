@@ -327,7 +327,7 @@ namespace PreenchedorBRMED
             Nativo.POINT p;
             Nativo.GetCursorPos(out p);
             ocupado = true;
-            Task.Run(() => Mapeador.Capturar(p.X, p.Y)).ContinueWith(t =>
+            Task.Run(() => Mapeador.Capturar(p.X, p.Y, paraCaptura)).ContinueWith(t =>
             {
                 ocupado = false;
                 try

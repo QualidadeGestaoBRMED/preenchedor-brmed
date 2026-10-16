@@ -62,6 +62,26 @@ namespace PreenchedorBRMED
         [StructLayout(LayoutKind.Sequential)]
         public struct POINT { public int X; public int Y; }
 
+        [StructLayout(LayoutKind.Sequential)]
+        struct RECT { public int Left, Top, Right, Bottom; }
+
+        [DllImport("user32.dll")]
+        static extern bool GetClientRect(IntPtr hWnd, out RECT r);
+
+        [DllImport("user32.dll")]
+        static extern bool ClientToScreen(IntPtr hWnd, ref POINT p);
+
+        /// <summary>A área interna da janela (sem borda nem barra de título), em coordenadas de tela.</summary>
+        public static bool AreaCliente(IntPtr hWnd, out int x, out int y, out int largura, out int altura)
+        {
+            x = y = largura = altura = 0;
+            RECT r;
+            var origem = new POINT();
+            if (!GetClientRect(hWnd, out r) || !ClientToScreen(hWnd, ref origem)) return false;
+            x = origem.X; y = origem.Y; largura = r.Right; altura = r.Bottom;
+            return largura > 0 && altura > 0;
+        }
+
         [DllImport("user32.dll")]
         public static extern bool GetCursorPos(out POINT p);
 

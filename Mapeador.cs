@@ -16,7 +16,8 @@ namespace PreenchedorBRMED
     /// <summary>Descobre qual campo está sob o mouse e como reencontrá-lo depois.</summary>
     static class Mapeador
     {
-        public static Captura Capturar(int x, int y)
+        /// <param name="paraCaptura">true = o campo será lido (Ctrl+Alt+K), o que a posição na tela não permite.</param>
+        public static Captura Capturar(int x, int y, bool paraCaptura = false)
         {
             var c = new Captura();
             try
@@ -36,24 +37,23 @@ namespace PreenchedorBRMED
                 var tipo = campo.Current.ControlType;
                 var mapeado = new CampoMapeado { Tipo = NomeDoTipo(tipo), Indice = -1 };
 
-                // Uma única leitura da janela (com cache) serve para todas as verificações abaixo.
-                var inst = Instantaneo.Tirar(janela);
-                var item = inst.De(campo);
                 string id = campo.Current.AutomationId;
                 string nome = campo.Current.Name;
                 string classe = campo.Current.ClassName;
 
-                if (tipo == ControlType.RadioButton)
+                // Programas em Qt não têm janelas nativas nos campos: a automação é lenta e sem identificadores. Eles (e as
+                // opções, como Masculino/Feminino) são mapeados pela posição dentro da tela e preenchidos com clique e digitação.
+                bool semJanelasNativas = (janela.Current.ClassName ?? "").StartsWith("Qt", StringComparison.OrdinalIgnoreCase);
+                if (!paraCaptura && (semJanelasNativas || tipo == ControlType.RadioButton) && MarcarPosicao(janela, campo, x, y, mapeado))
                 {
-                    // Opção (Masculino/Feminino...): o campo mapeado é o grupo; na hora de colar escolhe-se a opção pelo valor.
-                    if (string.IsNullOrWhiteSpace(nome)) { c.Erro = "Esta opção não tem texto que a automação consiga ler."; return c; }
-                    mapeado.NomeControle = nome;
-                    var grupo = item == null ? new System.Collections.Generic.List<ItemUi>() : inst.Grupo(item);
-                    mapeado.Descricao = "Opções: " + (grupo.Count > 1 ? string.Join(" / ", grupo.Select(g => g.Nome.Trim()).ToArray()) : nome.Trim());
+                    mapeado.Descricao = DescreverPosicao(campo, mapeado);
                     c.Campo = mapeado;
                     return c;
                 }
 
+                // Uma única leitura da janela (com cache) serve para todas as verificações abaixo.
+                var inst = Instantaneo.Tirar(janela);
+                var item = inst.De(campo);
                 if (item == null)
                 {
                     // Tipo que o instantâneo não lê (ex.: controle personalizado): cai nas buscas diretas.
@@ -99,6 +99,39 @@ namespace PreenchedorBRMED
                 c.Erro = "Não consegui ler este campo: " + erro.Message;
             }
             return c;
+        }
+
+        /// <summary>Guarda onde o campo está dentro da tela: a fração da área interna da janela (vale em qualquer posição ou escala).</summary>
+        static bool MarcarPosicao(AutomationElement janela, AutomationElement campo, int x, int y, CampoMapeado mapeado)
+        {
+            var hwnd = new IntPtr(janela.Current.NativeWindowHandle);
+            int ox, oy, largura, altura;
+            if (hwnd == IntPtr.Zero || !Nativo.AreaCliente(hwnd, out ox, out oy, out largura, out altura)) return false;
+
+            // O centro do controle vale mais que o ponto do mouse; sem área conhecida, usa o mouse.
+            double cx = x, cy = y;
+            var area = campo.Current.BoundingRectangle;
+            if (!area.IsEmpty && area.Width > 1 && area.Height > 1) { cx = area.X + area.Width / 2; cy = area.Y + area.Height / 2; }
+
+            double fx = (cx - ox) / largura, fy = (cy - oy) / altura;
+            if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return false;
+            mapeado.Posicao = true;
+            mapeado.PosX = Math.Round(fx, 4);
+            mapeado.PosY = Math.Round(fy, 4);
+            mapeado.JanelaTitulo = janela.Current.Name ?? "";
+            return true;
+        }
+
+        static string DescreverPosicao(AutomationElement campo, CampoMapeado m)
+        {
+            try
+            {
+                var rotulo = campo.GetCurrentPropertyValue(AutomationElement.LabeledByProperty) as AutomationElement;
+                if (rotulo != null && !string.IsNullOrWhiteSpace(rotulo.Current.Name)) return rotulo.Current.Name.Trim();
+            }
+            catch (ElementNotAvailableException) { }
+            if (!string.IsNullOrWhiteSpace(campo.Current.Name)) return campo.Current.Name.Trim();
+            return "Campo em " + (int)Math.Round(m.PosX * 100) + "% · " + (int)Math.Round(m.PosY * 100) + "%";
         }
 
         const string SemIdentificacao = "Este campo não tem identificação que a automação consiga reencontrar. Para este sistema, use um perfil por teclado.";

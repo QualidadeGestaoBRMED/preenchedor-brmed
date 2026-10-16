@@ -61,11 +61,21 @@ namespace PreenchedorBRMED
         /// <summary>Para programas sem id nem nome (Qt): o texto do rótulo ao lado do campo e de que lado ele fica ("E" esquerda, "A" acima).</summary>
         [DataMember(Order = 10, EmitDefaultValue = false)] public string Rotulo { get; set; }
         [DataMember(Order = 11, EmitDefaultValue = false)] public string PosRotulo { get; set; }
+        /// <summary>
+        /// Para programas sem janelas nativas (Qt): o campo é achado pela posição dentro da tela (fração da área interna da janela)
+        /// e preenchido com um clique e a digitação, sem consultar a árvore de acessibilidade, que é lenta nesses programas.
+        /// JanelaTitulo diz a que tela a posição pertence; em outra tela o campo é ignorado.
+        /// </summary>
+        [DataMember(Order = 12, EmitDefaultValue = false)] public bool Posicao { get; set; }
+        [DataMember(Order = 13, EmitDefaultValue = false)] public double PosX { get; set; }
+        [DataMember(Order = 14, EmitDefaultValue = false)] public double PosY { get; set; }
+        [DataMember(Order = 15, EmitDefaultValue = false)] public string JanelaTitulo { get; set; }
 
         public string Identificacao
         {
             get
             {
+                if (Posicao) return "Posição na tela \"" + JanelaTitulo + "\" (" + (int)Math.Round(PosX * 100) + "% · " + (int)Math.Round(PosY * 100) + "%)";
                 if (!string.IsNullOrEmpty(AutomationId)) return "AutomationId = " + AutomationId;
                 if (!string.IsNullOrEmpty(NomeControle)) return "Nome = " + NomeControle;
                 if (!string.IsNullOrEmpty(Rotulo)) return "Rótulo \"" + Rotulo + "\" (" + (PosRotulo == "A" ? "acima" : "à esquerda") + ")";
@@ -78,7 +88,8 @@ namespace PreenchedorBRMED
         {
             return outro != null && Captura == outro.Captura && Tipo == outro.Tipo && Indice == outro.Indice
                 && AutomationId == outro.AutomationId && NomeControle == outro.NomeControle
-                && ClassName == outro.ClassName && IndiceClasse == outro.IndiceClasse && Rotulo == outro.Rotulo;
+                && ClassName == outro.ClassName && IndiceClasse == outro.IndiceClasse && Rotulo == outro.Rotulo
+                && Posicao == outro.Posicao && (!Posicao || (Math.Abs(PosX - outro.PosX) < 0.015 && Math.Abs(PosY - outro.PosY) < 0.015 && JanelaTitulo == outro.JanelaTitulo));
         }
     }
 
