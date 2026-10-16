@@ -50,6 +50,38 @@ namespace PreenchedorBRMED
             return lista.ToArray();
         }
 
+        /// <summary>
+        /// Uma opção de um campo de lista como destino próprio (ex.: "Sexo: Feminino"), para mapear botões de opção:
+        /// cada botão é um ponto da tela, e só é clicado quando o valor do campo é aquela opção.
+        /// </summary>
+        public static Dado[] DestinosDeOpcao(ModeloFormulario modelo)
+        {
+            var lista = new List<Dado>();
+            foreach (var c in modelo.Campos.Where(x => x.EhLista && x.Opcoes != null))
+                foreach (var o in c.Opcoes)
+                    lista.Add(new Dado(c.Chave + SepOpcao + o, c.Rotulo + ": " + o, CorDoCampo(modelo, c)));
+            return lista.ToArray();
+        }
+
+        /// <summary>Todas as chaves que um mapeamento pode usar: os campos, suas versões sem pontos e as opções das listas.</summary>
+        public static Dado[] TodosDestinos(ModeloFormulario modelo)
+        {
+            return Destinos(modelo).Concat(DestinosDeOpcao(modelo)).ToArray();
+        }
+
+        const char SepOpcao = '|';
+
+        /// <summary>"sexo|Feminino" vira campo "sexo" e opção "Feminino".</summary>
+        public static bool EhOpcao(string chave, out string campo, out string opcao)
+        {
+            campo = opcao = null;
+            int i = (chave ?? "").IndexOf(SepOpcao);
+            if (i <= 0) return false;
+            campo = chave.Substring(0, i);
+            opcao = chave.Substring(i + 1);
+            return true;
+        }
+
         const string SufixoNumeros = "_numeros";
 
         public static bool TemDados(string formularioId)
@@ -102,13 +134,13 @@ namespace PreenchedorBRMED
 
         public static string Rotulo(string formularioId, string chave)
         {
-            var d = Destinos(RepositorioFormularios.Obter(formularioId)).FirstOrDefault(x => x.Chave == chave);
+            var d = TodosDestinos(RepositorioFormularios.Obter(formularioId)).FirstOrDefault(x => x.Chave == chave);
             return d != null ? d.Rotulo : chave;
         }
 
         public static Color Cor(string formularioId, string chave)
         {
-            var d = Destinos(RepositorioFormularios.Obter(formularioId)).FirstOrDefault(x => x.Chave == chave);
+            var d = TodosDestinos(RepositorioFormularios.Obter(formularioId)).FirstOrDefault(x => x.Chave == chave);
             return d != null ? d.Cor : Tema.Suave;
         }
 

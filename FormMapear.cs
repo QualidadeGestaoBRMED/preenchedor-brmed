@@ -71,7 +71,8 @@ namespace PreenchedorBRMED
                         AutoSize = true, MaximumSize = new Size(230, 0), Margin = new Padding(0, 0, 0, 8)
                     });
 
-                foreach (var d in Dados.Destinos(modelo))
+                // Botões de opção (Sexo...) mapeiam uma opção de lista por vez; os demais campos, o campo inteiro.
+                foreach (var d in captura.Campo.Tipo == "RadioButton" ? Dados.DestinosDeOpcao(modelo) : Dados.Destinos(modelo))
                 {
                     var atual = jaMapeado != null && jaMapeado.Dado == d.Chave;
                     var b = BotaoMenu((atual ? "✓  " : "") + d.Rotulo, d.Cor, atual);
@@ -81,7 +82,7 @@ namespace PreenchedorBRMED
                         // Um sistema mapeado antes em outro formulário passa para o principal (como em "Sistemas mapeados…").
                         if (travado && modelo.Id != RepositorioFormularios.Obter(perfilAtual.FormularioId).Id)
                         {
-                            var validos = Dados.Destinos(modelo).Select(x => x.Chave).ToList();
+                            var validos = Dados.TodosDestinos(modelo).Select(x => x.Chave).ToList();
                             int perdidos = perfilAtual.Campos.Count(x => !validos.Contains(x.Dado));
                             if (perdidos > 0 && MessageBox.Show(this,
                                     perdidos + (perdidos == 1 ? " campo já mapeado não existe" : " campos já mapeados não existem") + " no formulário \"" + modelo.Nome + "\" e será removido do mapeamento deste sistema. Continuar?",

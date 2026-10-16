@@ -150,7 +150,7 @@ namespace PreenchedorBRMED
             if (novo.Id == RepositorioFormularios.Obter(p.FormularioId).Id) return;
 
             // Campos que apontam para um dado inexistente no novo formulário deixam de ter sentido.
-            var validos = Dados.Destinos(novo).Select(d => d.Chave).ToList();
+            var validos = Dados.TodosDestinos(novo).Select(d => d.Chave).ToList();
             int perdidos = p.Campos == null ? 0 : p.Campos.Count(c => !validos.Contains(c.Dado));
             if (perdidos > 0 && MessageBox.Show(this,
                     perdidos + (perdidos == 1 ? " campo mapeado não existe" : " campos mapeados não existem") + " no formulário \"" + novo.Nome + "\" e será removido do mapeamento. Continuar?",
