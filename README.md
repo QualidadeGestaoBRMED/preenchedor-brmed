@@ -31,6 +31,11 @@ Data, Lista de opções, Número decimal e Documento: CPF ou Passaporte, além d
 O mapeamento (Ctrl+Alt+M e Ctrl+Alt+K) vai sempre para o **formulário principal**. Se o sistema estava mapeado em outro
 formulário, o app avisa quais campos serão removidos antes de passá-lo para o principal.
 
+**Opções (Sexo, Sim/Não):** aponte o mouse para uma das opções (ex.: Masculino) e use Ctrl+Alt+M para escolher o dado
+(Sexo). Ao colar, o app marca a opção que corresponde ao valor (Masculino/Feminino, também reconhece Male/Female e M/F).
+Em programas sem identificador nos campos (Qt, Delphi), o campo é reencontrado pelo texto do rótulo ao lado, e a janela
+é lida de uma vez só, o que deixa o preenchimento rápido.
+
 O programa fica no ícone perto do relógio. Em **Configurações → Formulário principal** (menu do ícone) escolha qual
 formulário o Ctrl+Alt+F sempre abre; o nome dele aparece no topo da janela. Pelo menu do ícone: formulário, meus formulários, sistemas mapeados,
 apagar dados e sair.
