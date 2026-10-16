@@ -13,7 +13,6 @@ namespace PreenchedorBRMED
         // O que foi digitado e ainda não salvo, para não perder ao trocar de formulário.
         readonly Dictionary<string, Dictionary<string, string>> rascunhos = new Dictionary<string, Dictionary<string, string>>();
         readonly Panel campos;
-        readonly Panel acoesTopo;
         readonly Panel rodape;
         readonly RotuloQuebra titulo;
         readonly RotuloQuebra erro;
@@ -57,7 +56,7 @@ namespace PreenchedorBRMED
                 ForeColor = Tema.Marinho, Font = Tema.Titulo(15f), Dock = DockStyle.Top
             };
             topo.Controls.Add(titulo);
-            titulo.Resize += (s, e) => topo.Height = titulo.Height + topo.Padding.Vertical;
+            titulo.Resize += (s, e) => topo.Height = Math.Max(titulo.Height, 30) + topo.Padding.Vertical;
             topo.Height = 64;
 
             // ----- Campos (rolagem automática quando a janela é pequena) -----
@@ -94,11 +93,12 @@ namespace PreenchedorBRMED
                 else Disparar(PedirColar);
             };
 
-            // Copiar do BRNET é o primeiro item da área rolável: sobe junto com os campos.
-            acoesTopo = new Panel { Dock = DockStyle.Top, Height = 54, Padding = new Padding(0, 0, 0, 16) };
-            var capturar = new BotaoMarca("Copiar do BRNET", EstiloBotao.Contorno) { Dock = DockStyle.Fill };
+            // Copiar do BRNET: botão pequeno ao lado do nome do formulário. Entra depois do título para ocupar a direita primeiro.
+            var capturar = new BotaoMarca("Copiar do BRNET", EstiloBotao.Contorno) { Dock = DockStyle.Top, Height = 30, Font = Tema.TextoForte(9f) };
             capturar.Click += (s, e) => Disparar(PedirCapturar);
-            acoesTopo.Controls.Add(capturar);
+            var lado = new Panel { Dock = DockStyle.Right, Width = 136, Padding = new Padding(10, 0, 0, 0) };
+            lado.Controls.Add(capturar);
+            topo.Controls.Add(lado);
 
             botoes.Controls.Add(principal);
             botoes.Controls.Add(limpar);
@@ -150,7 +150,7 @@ namespace PreenchedorBRMED
             MostrarErro("");
 
             campos.SuspendLayout();
-            foreach (var antigo in campos.Controls.Cast<Control>().ToList()) { campos.Controls.Remove(antigo); if (antigo != acoesTopo) antigo.Dispose(); }
+            foreach (var antigo in campos.Controls.Cast<Control>().ToList()) { campos.Controls.Remove(antigo); antigo.Dispose(); }
             caixas.Clear();
 
             // Campos "ao lado" dividem a linha com o anterior.
@@ -164,7 +164,6 @@ namespace PreenchedorBRMED
             var blocos = grupos.Select(g => g.Count == 1 ? g[0] : NovaLinha(g)).ToList();
             // Dock=Top empilha de baixo para cima na ordem de inclusão; por isso o primeiro campo entra por último.
             for (int i = blocos.Count - 1; i >= 0; i--) campos.Controls.Add(blocos[i]);
-            campos.Controls.Add(acoesTopo); // por último = no topo
 
             var valores = Dados.Copia(m.Id);
             Dictionary<string, string> rascunho;
