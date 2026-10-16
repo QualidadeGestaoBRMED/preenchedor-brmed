@@ -13,6 +13,21 @@ de sistemas desktop do Windows com um atalho.
 | Ctrl+Alt+K | Mapeia o campo que está **sob o mouse** para **capturar** o valor dele |
 | Ctrl+Alt+L | Captura os campos mapeados da janela ativa e joga no formulário (sem salvar) |
 
+No formulário de dados, **Copiar do BRNET** (no topo) e **Colar no sistema** fazem o mesmo que Ctrl+Alt+L e Ctrl+Alt+V,
+sem precisar de atalho. O botão do rodapé é **Salvar dados** enquanto há algo não salvo e vira **Colar no sistema** depois
+de salvar; volta a ser Salvar se algum campo mudar ou se clicar em Limpar dados: clique no sistema de destino e volte ao formulário. O app lembra a última janela
+de outro programa e a traz para a frente antes de agir.
+
+**Cadastro BRNET (formulário único):** o colaborador preenche tudo em um só formulário (nome, empresa, CPF ou passaporte,
+data de nascimento, idade, altura, peso, sexo e tipo de exame; a data do exame vai automática) e, a cada sistema por onde passa, clica em **Colar no
+sistema**; cada sistema recebe só os campos que foram mapeados nele.
+
+**Captura do BRNET (já vem pronta):** com a tela de atendimento do BRNET na aba ativa do navegador (Chrome, Edge, Firefox,
+Brave, Opera ou Vivaldi), **Copiar do BRNET** / Ctrl+Alt+L lê o quadro "Paciente" sem precisar mapear nada e separa
+nome, CPF, idade, data de nascimento, empresa e tipo de exame (pelo título "Atendimento para o exame ..."). Sexo, altura e peso não
+aparecem no BRNET e são preenchidos no formulário (data de nascimento e idade ficam lado a lado, assim como altura, peso e sexo); a data do exame não aparece no formulário: vai sempre com o dia em que os dados foram salvos. Em *Meus formulários* há os tipos
+Data, Lista de opções, Número decimal e Documento: CPF ou Passaporte, além da opção de pôr um campo na linha do anterior.
+
 O programa fica no ícone perto do relógio. Em **Configurações → Formulário principal** (menu do ícone) escolha qual
 formulário o Ctrl+Alt+F sempre abre; o nome dele aparece no topo da janela. Pelo menu do ícone: formulário, meus formulários, sistemas mapeados,
 sistema de teste, apagar dados e sair.
