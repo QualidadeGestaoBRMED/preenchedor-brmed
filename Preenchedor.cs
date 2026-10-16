@@ -55,6 +55,9 @@ namespace PreenchedorBRMED
                 return;
             }
             var raiz = AutomationElement.FromHandle(janela);
+            // Uma única leitura da janela (com cache) em vez de uma busca na árvore por campo.
+            var inst = Instantaneo.Tirar(raiz);
+            bool estruturaAnotada = false;
             foreach (var campo in perfil.Campos.Where(c => !c.Captura))
             {
                 string rotulo = Dados.Rotulo(perfil.FormularioId, campo.Dado);
@@ -64,9 +67,25 @@ namespace PreenchedorBRMED
                 AutomationElement elemento = null;
                 try
                 {
-                    elemento = Localizar(raiz, campo);
+                    if (campo.Tipo == "RadioButton")
+                    {
+                        var opcao = inst.AcharOpcao(campo, valor);
+                        if (opcao == null || !SelecionarOpcao(opcao.El))
+                        {
+                            Diagnostico.Nota("não escolheu a opção \"" + valor + "\" de \"" + rotulo + "\" · mapeado a partir de \"" + campo.NomeControle + "\"");
+                            r.NaoEncontrados.Add(rotulo); continue;
+                        }
+                        r.Preenchidos++;
+                        continue;
+                    }
+                    elemento = Localizar(inst, raiz, campo);
                     if (elemento == null || !Escrever(elemento, valor))
                     {
+                        if (!estruturaAnotada && Diagnostico.Ativo)
+                        {
+                            estruturaAnotada = true;
+                            Diagnostico.Nota("controles que a janela mostra para a automação:" + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", inst.Descrever().ToArray()));
+                        }
                         Diagnostico.Nota("não preencheu \"" + rotulo + "\" · " + (elemento == null ? "controle não localizado" : "controle desabilitado ou recusou a digitação")
                             + " · mapeado como " + campo.Tipo + " id=" + campo.AutomationId + " nome=" + campo.NomeControle + " índice=" + campo.Indice);
                         r.NaoEncontrados.Add(rotulo); continue;
@@ -82,7 +101,15 @@ namespace PreenchedorBRMED
             }
         }
 
-        public static AutomationElement Localizar(AutomationElement raiz, CampoMapeado campo)
+        /// <summary>Resolve o campo no instantâneo da janela (rápido); só controles personalizados usam a busca direta.</summary>
+        public static AutomationElement Localizar(Instantaneo inst, AutomationElement raiz, CampoMapeado campo)
+        {
+            if (campo.Tipo == "Custom") return LocalizarDireto(raiz, campo);
+            var item = inst.Achar(campo);
+            return item == null ? null : item.El;
+        }
+
+        static AutomationElement LocalizarDireto(AutomationElement raiz, CampoMapeado campo)
         {
             var tipo = Mapeador.TipoPorNome(campo.Tipo);
             var porTipo = new PropertyCondition(AutomationElement.ControlTypeProperty, tipo);
@@ -116,6 +143,27 @@ namespace PreenchedorBRMED
             return null;
         }
 
+        /// <summary>Marca uma opção (botão de rádio): pelo padrão de seleção e, se o programa não o oferece, com um clique.</summary>
+        static bool SelecionarOpcao(AutomationElement el)
+        {
+            object padrao;
+            if (el.TryGetCurrentPattern(SelectionItemPattern.Pattern, out padrao))
+            {
+                try
+                {
+                    var item = (SelectionItemPattern)padrao;
+                    item.Select();
+                    if (item.Current.IsSelected) return true;
+                }
+                catch (InvalidOperationException) { }
+            }
+            var area = el.Current.BoundingRectangle;
+            if (area.IsEmpty || area.Width < 1 || area.Height < 1) return false;
+            Diagnostico.Nota("opção marcada com clique em " + (int)(area.X + area.Width / 2) + "," + (int)(area.Y + area.Height / 2));
+            Teclado.Clicar((int)(area.X + area.Width / 2), (int)(area.Y + area.Height / 2));
+            return true;
+        }
+
         static bool Escrever(AutomationElement el, string valor)
         {
             if (!el.Current.IsEnabled) return false;
@@ -129,7 +177,17 @@ namespace PreenchedorBRMED
                 if (!vp.Current.IsReadOnly)
                 {
                     try { el.SetFocus(); } catch (InvalidOperationException) { }
-                    try { vp.SetValue(valor); Diagnostico.Nota("preenchido por ValuePattern · " + el.Current.ControlType.ProgrammaticName); return true; }
+                    try
+                    {
+                        vp.SetValue(valor);
+                        // Alguns programas (Qt) aceitam o SetValue sem erro e não mudam o campo: confere e, se preciso, digita.
+                        if (Instantaneo.Normalizar(vp.Current.Value) == Instantaneo.Normalizar(valor))
+                        {
+                            Diagnostico.Nota("preenchido por ValuePattern · " + el.Current.ControlType.ProgrammaticName);
+                            return true;
+                        }
+                        Diagnostico.Nota("ValuePattern aceitou mas o campo não mudou; tentando digitar");
+                    }
                     catch (InvalidOperationException erro) // o programa recusou SetValue; tenta digitando
                     {
                         Diagnostico.Nota("ValuePattern.SetValue recusado (" + erro.Message + "); tentando digitar");

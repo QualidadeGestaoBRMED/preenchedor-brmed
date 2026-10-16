@@ -58,6 +58,9 @@ namespace PreenchedorBRMED
         /// </summary>
         [DataMember(Order = 8, EmitDefaultValue = false)] public string ClassName { get; set; }
         [DataMember(Order = 9, EmitDefaultValue = false)] public int IndiceClasse { get; set; }
+        /// <summary>Para programas sem id nem nome (Qt): o texto do rótulo ao lado do campo e de que lado ele fica ("E" esquerda, "A" acima).</summary>
+        [DataMember(Order = 10, EmitDefaultValue = false)] public string Rotulo { get; set; }
+        [DataMember(Order = 11, EmitDefaultValue = false)] public string PosRotulo { get; set; }
 
         public string Identificacao
         {
@@ -65,6 +68,7 @@ namespace PreenchedorBRMED
             {
                 if (!string.IsNullOrEmpty(AutomationId)) return "AutomationId = " + AutomationId;
                 if (!string.IsNullOrEmpty(NomeControle)) return "Nome = " + NomeControle;
+                if (!string.IsNullOrEmpty(Rotulo)) return "Rótulo \"" + Rotulo + "\" (" + (PosRotulo == "A" ? "acima" : "à esquerda") + ")";
                 if (!string.IsNullOrEmpty(ClassName)) return "Classe " + ClassName + " nº " + (IndiceClasse + 1);
                 return Tipo + " nº " + (Indice + 1);
             }
@@ -74,7 +78,7 @@ namespace PreenchedorBRMED
         {
             return outro != null && Captura == outro.Captura && Tipo == outro.Tipo && Indice == outro.Indice
                 && AutomationId == outro.AutomationId && NomeControle == outro.NomeControle
-                && ClassName == outro.ClassName && IndiceClasse == outro.IndiceClasse;
+                && ClassName == outro.ClassName && IndiceClasse == outro.IndiceClasse && Rotulo == outro.Rotulo;
         }
     }
 

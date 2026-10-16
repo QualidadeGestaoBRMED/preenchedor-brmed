@@ -32,9 +32,10 @@ namespace PreenchedorBRMED
             {
                 Teclado.EsperarSoltarModificadores();
                 var raiz = AutomationElement.FromHandle(janela);
+                var inst = Instantaneo.Tirar(raiz);
                 foreach (var campo in perfil.Campos.Where(c => c.Captura))
                 {
-                    var el = Preenchedor.Localizar(raiz, campo);
+                    var el = Preenchedor.Localizar(inst, raiz, campo);
                     // Campos de outras telas do mesmo programa (ex.: outro site no navegador) são ignorados em silêncio.
                     if (el == null) continue;
                     r.Encontrados++;
