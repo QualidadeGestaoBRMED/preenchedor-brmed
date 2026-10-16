@@ -28,6 +28,9 @@ nome, CPF, idade, data de nascimento, empresa e tipo de exame (pelo título "Ate
 aparecem no BRNET e são preenchidos no formulário (data de nascimento e idade ficam lado a lado, assim como altura, peso e sexo); a data do exame não aparece no formulário: vai sempre com o dia em que os dados foram salvos. Em *Meus formulários* há os tipos
 Data, Lista de opções, Número decimal e Documento: CPF ou Passaporte, além da opção de pôr um campo na linha do anterior.
 
+O mapeamento (Ctrl+Alt+M e Ctrl+Alt+K) vai sempre para o **formulário principal**. Se o sistema estava mapeado em outro
+formulário, o app avisa quais campos serão removidos antes de passá-lo para o principal.
+
 O programa fica no ícone perto do relógio. Em **Configurações → Formulário principal** (menu do ícone) escolha qual
 formulário o Ctrl+Alt+F sempre abre; o nome dele aparece no topo da janela. Pelo menu do ícone: formulário, meus formulários, sistemas mapeados,
 sistema de teste, apagar dados e sair.
