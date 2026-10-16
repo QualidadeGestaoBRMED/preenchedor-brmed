@@ -52,6 +52,12 @@ namespace PreenchedorBRMED
         [DataMember(Order = 6, EmitDefaultValue = false)] public string Descricao { get; set; }
         /// <summary>true = o campo é lido com Ctrl+Alt+C (alimenta o formulário); false = recebe o dado com Ctrl+Alt+V.</summary>
         [DataMember(Order = 7, EmitDefaultValue = false)] public bool Captura { get; set; }
+        /// <summary>
+        /// Para programas sem AutomationId estável (ex.: Delphi, que cria as janelas de novo a cada abertura do formulário):
+        /// a classe do controle (ex.: TEdit) e a posição dele entre os controles da mesma classe na janela.
+        /// </summary>
+        [DataMember(Order = 8, EmitDefaultValue = false)] public string ClassName { get; set; }
+        [DataMember(Order = 9, EmitDefaultValue = false)] public int IndiceClasse { get; set; }
 
         public string Identificacao
         {
@@ -59,6 +65,7 @@ namespace PreenchedorBRMED
             {
                 if (!string.IsNullOrEmpty(AutomationId)) return "AutomationId = " + AutomationId;
                 if (!string.IsNullOrEmpty(NomeControle)) return "Nome = " + NomeControle;
+                if (!string.IsNullOrEmpty(ClassName)) return "Classe " + ClassName + " nº " + (IndiceClasse + 1);
                 return Tipo + " nº " + (Indice + 1);
             }
         }
@@ -66,7 +73,8 @@ namespace PreenchedorBRMED
         public bool MesmoCampo(CampoMapeado outro)
         {
             return outro != null && Captura == outro.Captura && Tipo == outro.Tipo && Indice == outro.Indice
-                && AutomationId == outro.AutomationId && NomeControle == outro.NomeControle;
+                && AutomationId == outro.AutomationId && NomeControle == outro.NomeControle
+                && ClassName == outro.ClassName && IndiceClasse == outro.IndiceClasse;
         }
     }
 

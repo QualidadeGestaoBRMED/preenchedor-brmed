@@ -38,14 +38,22 @@ namespace PreenchedorBRMED
 
                 string id = campo.Current.AutomationId;
                 string nome = campo.Current.Name;
+                string classe = campo.Current.ClassName;
 
-                if (!string.IsNullOrWhiteSpace(id) && Unico(janela, new PropertyCondition(AutomationElement.AutomationIdProperty, id)))
+                // Um AutomationId que é só o número da janela do campo (Delphi) muda a cada abertura do formulário: não serve.
+                if (!string.IsNullOrWhiteSpace(id) && !IdVolatil(campo, id) && Unico(janela, new PropertyCondition(AutomationElement.AutomationIdProperty, id)))
                     mapeado.AutomationId = id;
                 else if (!string.IsNullOrWhiteSpace(nome) && Unico(janela, new AndCondition(porTipo, new PropertyCondition(AutomationElement.NameProperty, nome))))
                     mapeado.NomeControle = nome;
+                else if (ClasseEstavel(classe) && PosicaoNaClasse(janela, campo, classe) >= 0)
+                {
+                    // Sem identificador estável: guarda a classe e a posição entre os controles dessa classe (ex.: o 3º TEdit).
+                    mapeado.ClassName = classe;
+                    mapeado.IndiceClasse = PosicaoNaClasse(janela, campo, classe);
+                }
                 else
                 {
-                    // Sem identificador estável: guarda a posição entre os campos do mesmo tipo.
+                    // Último recurso: posição entre os campos do mesmo tipo.
                     var todos = janela.FindAll(TreeScope.Descendants, porTipo);
                     for (int i = 0; i < todos.Count; i++)
                         if (Automation.Compare(todos[i], campo)) { mapeado.Indice = i; break; }
@@ -64,6 +72,28 @@ namespace PreenchedorBRMED
                 c.Erro = "Não consegui ler este campo: " + erro.Message;
             }
             return c;
+        }
+
+        /// <summary>Número de janela (HWND) vira AutomationId em programas Delphi: passa de 65535 ou é o próprio handle do campo.</summary>
+        static bool IdVolatil(AutomationElement campo, string id)
+        {
+            long n;
+            if (!long.TryParse(id, out n)) return false;
+            return n > 65535 || n == campo.Current.NativeWindowHandle;
+        }
+
+        /// <summary>Classes como TEdit ou Edit são fixas; nomes com sufixo gerado (WindowsForms10.EDIT.app.0.xxx) mudam a cada execução.</summary>
+        static bool ClasseEstavel(string classe)
+        {
+            return !string.IsNullOrWhiteSpace(classe) && classe.Length < 40 && System.Text.RegularExpressions.Regex.IsMatch(classe, @"^[A-Za-z_][A-Za-z0-9_]*$");
+        }
+
+        static int PosicaoNaClasse(AutomationElement janela, AutomationElement campo, string classe)
+        {
+            var todos = janela.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ClassNameProperty, classe));
+            for (int i = 0; i < todos.Count; i++)
+                if (Automation.Compare(todos[i], campo)) return i;
+            return -1;
         }
 
         static AutomationElement SubirAteCampo(AutomationElement el)

@@ -87,13 +87,26 @@ namespace PreenchedorBRMED
             var tipo = Mapeador.TipoPorNome(campo.Tipo);
             var porTipo = new PropertyCondition(AutomationElement.ControlTypeProperty, tipo);
 
+            // Do mais firme para o mais frágil; cada um só vale se encontrar o campo.
+            AutomationElement achado;
             if (!string.IsNullOrEmpty(campo.AutomationId))
-                return raiz.FindFirst(TreeScope.Descendants,
-                    new PropertyCondition(AutomationElement.AutomationIdProperty, campo.AutomationId));
+            {
+                achado = raiz.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, campo.AutomationId));
+                if (achado != null) return achado;
+            }
 
             if (!string.IsNullOrEmpty(campo.NomeControle))
-                return raiz.FindFirst(TreeScope.Descendants, new AndCondition(porTipo,
+            {
+                achado = raiz.FindFirst(TreeScope.Descendants, new AndCondition(porTipo,
                     new PropertyCondition(AutomationElement.NameProperty, campo.NomeControle)));
+                if (achado != null) return achado;
+            }
+
+            if (!string.IsNullOrEmpty(campo.ClassName))
+            {
+                var daClasse = raiz.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ClassNameProperty, campo.ClassName));
+                if (campo.IndiceClasse >= 0 && campo.IndiceClasse < daClasse.Count) return daClasse[campo.IndiceClasse];
+            }
 
             if (campo.Indice >= 0)
             {
