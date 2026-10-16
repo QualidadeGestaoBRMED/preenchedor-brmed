@@ -10,6 +10,8 @@ namespace PreenchedorBRMED
         public Dictionary<string, string> Valores = new Dictionary<string, string>();
         public int Encontrados;
         public string Erro;
+        /// <summary>true = veio da captura padrão do BRNET, não de campos mapeados.</summary>
+        public bool Brnet;
 
         public string Resumo()
         {

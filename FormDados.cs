@@ -9,7 +9,7 @@ namespace PreenchedorBRMED
     /// <summary>Formulário principal: o colaborador escolhe um formulário e digita os dados uma única vez.</summary>
     class FormDados : Form
     {
-        readonly Dictionary<string, TextBox> caixas = new Dictionary<string, TextBox>();
+        readonly Dictionary<string, Control> caixas = new Dictionary<string, Control>(); // TextBox, ou ComboBox nos campos de lista
         // O que foi digitado e ainda não salvo, para não perder ao trocar de formulário.
         readonly Dictionary<string, Dictionary<string, string>> rascunhos = new Dictionary<string, Dictionary<string, string>>();
         readonly Panel campos;
@@ -17,6 +17,20 @@ namespace PreenchedorBRMED
         readonly RotuloQuebra titulo;
         readonly RotuloQuebra erro;
         ModeloFormulario modelo;
+
+        /// <summary>O usuário clicou em "Colar no sistema" (os dados já foram validados e salvos).</summary>
+        public event Action PedirColar;
+        /// <summary>O usuário clicou em "Copiar do BRNET".</summary>
+        public event Action PedirCapturar;
+
+        // O botão do rodapé é "Salvar dados" enquanto há algo não salvo e vira "Colar no sistema" depois de salvar.
+        readonly BotaoMarca principal;
+        bool salvo;
+        bool montando;
+        // Campos que o "Copiar do BRNET" não preencheu: ficam em destaque até serem preenchidos.
+        readonly HashSet<string> pendentes = new HashSet<string>();
+        readonly Dictionary<string, Panel> molduras = new Dictionary<string, Panel>();
+        static readonly Color FundoPendente = Color.FromArgb(0xFF, 0xF3, 0xDC);
 
         public FormDados()
         {
@@ -63,25 +77,38 @@ namespace PreenchedorBRMED
             {
                 Dados.Limpar(modelo.Id);
                 rascunhos.Remove(modelo.Id);
-                foreach (var c in caixas.Values) c.Clear();
+                foreach (var c in modelo.Campos.Where(Visivel)) Definir(caixas[c.Chave], "");
                 MostrarErro("");
-                var primeira = caixas.Values.FirstOrDefault();
-                if (primeira != null) primeira.Focus();
+                LimparDestaques();
+                salvo = false;
+                AtualizarBotao();
+                FocarPrimeira();
                 Aviso.Mostrar("Dados apagados.");
             };
 
-            var salvar = new BotaoMarca("Salvar dados", EstiloBotao.Primario) { Dock = DockStyle.Right, Width = 150 };
-            salvar.Click += (s, e) => Salvar();
+            principal = new BotaoMarca("Salvar dados", EstiloBotao.Primario) { Dock = DockStyle.Right, Width = 170 };
+            principal.Click += (s, e) =>
+            {
+                if (!salvo) { if (Salvar(true)) { salvo = true; AtualizarBotao(); } }
+                else Disparar(PedirColar);
+            };
 
-            botoes.Controls.Add(salvar);
+            // Copiar do BRNET fica no topo, logo abaixo do título.
+            var acoes = new Panel { Dock = DockStyle.Top, Height = 56, Padding = new Padding(24, 10, 24, 6) };
+            var capturar = new BotaoMarca("Copiar do BRNET", EstiloBotao.Contorno) { Dock = DockStyle.Fill };
+            capturar.Click += (s, e) => Disparar(PedirCapturar);
+            acoes.Controls.Add(capturar);
+
+            botoes.Controls.Add(principal);
             botoes.Controls.Add(limpar);
             rodape.Controls.Add(botoes);
             rodape.Controls.Add(erro);
-            AcceptButton = salvar;
+            AcceptButton = principal;
 
             // A ordem importa: o controle que preenche vem primeiro, as bordas depois.
             Controls.Add(campos);
             Controls.Add(rodape);
+            Controls.Add(acoes);
             Controls.Add(topo);
 
             Selecionar(RepositorioFormularios.IdPrincipal);
@@ -108,11 +135,15 @@ namespace PreenchedorBRMED
         void GuardarRascunho()
         {
             if (modelo == null) return;
+            if (salvo) { rascunhos.Remove(modelo.Id); return; } // nada a guardar: o que está na tela já foi salvo
             rascunhos[modelo.Id] = caixas.ToDictionary(par => par.Key, par => par.Value.Text);
         }
 
         void Montar(ModeloFormulario m)
         {
+            montando = true;
+            pendentes.Clear();
+            molduras.Clear();
             modelo = m;
             Dados.FormularioAtivo = m.Id;
             titulo.Text = m.Nome;
@@ -122,54 +153,153 @@ namespace PreenchedorBRMED
             foreach (var antigo in campos.Controls.Cast<Control>().ToList()) { campos.Controls.Remove(antigo); antigo.Dispose(); }
             caixas.Clear();
 
-            var blocos = m.Campos.Select(c => NovoBloco(m, c)).ToList();
+            // Campos "ao lado" dividem a linha com o anterior.
+            var grupos = new List<List<Control>>();
+            foreach (var c in m.Campos.Where(Visivel))
+            {
+                var bloco = NovoBloco(m, c);
+                if (c.AoLado && grupos.Count > 0) grupos[grupos.Count - 1].Add(bloco);
+                else grupos.Add(new List<Control> { bloco });
+            }
+            var blocos = grupos.Select(g => g.Count == 1 ? g[0] : NovaLinha(g)).ToList();
             // Dock=Top empilha de baixo para cima na ordem de inclusão; por isso o primeiro campo entra por último.
             for (int i = blocos.Count - 1; i >= 0; i--) campos.Controls.Add(blocos[i]);
 
             var valores = Dados.Copia(m.Id);
             Dictionary<string, string> rascunho;
             if (rascunhos.TryGetValue(m.Id, out rascunho)) valores = rascunho;
-            foreach (var campo in m.Campos)
+            foreach (var campo in m.Campos.Where(Visivel))
             {
                 string v;
-                if (valores.TryGetValue(campo.Chave, out v)) caixas[campo.Chave].Text = campo.EhCpf ? Dados.FormatarCpf(v) : v;
+                if (valores.TryGetValue(campo.Chave, out v) && v != "") Definir(caixas[campo.Chave], Exibir(campo, v));
             }
 
             campos.AutoScrollPosition = Point.Empty;
             campos.ResumeLayout(true);
+
+            // Sem rascunho, o que aparece é exatamente o que foi salvo.
+            salvo = !rascunhos.ContainsKey(m.Id) && Dados.TemDados(m.Id);
+            montando = false;
+            AtualizarBotao();
+        }
+
+        /// <summary>Campos preenchidos automaticamente com a data de hoje não aparecem no formulário.</summary>
+        static bool Visivel(CampoForm campo) { return !campo.Hoje; }
+
+        void AtualizarBotao()
+        {
+            principal.Text = salvo ? "Colar no sistema" : "Salvar dados";
+        }
+
+        /// <summary>Qualquer mudança nos campos pede um novo "Salvar dados".</summary>
+        void MarcarAlterado()
+        {
+            if (montando || !salvo) return;
+            salvo = false;
+            AtualizarBotao();
+        }
+
+        /// <summary>Coloca vários campos curtos lado a lado, com a mesma largura.</summary>
+        static Control NovaLinha(List<Control> itens)
+        {
+            const int folga = 12;
+            var linha = new Panel { Dock = DockStyle.Top };
+            bool ajustando = false;
+            Action ajustar = () =>
+            {
+                if (ajustando) return;
+                ajustando = true;
+                int largura = Math.Max(40, (linha.ClientSize.Width - folga * (itens.Count - 1)) / itens.Count);
+                int altura = 0;
+                for (int i = 0; i < itens.Count; i++)
+                {
+                    itens[i].SetBounds(i * (largura + folga), 0, largura, itens[i].Height);
+                    altura = Math.Max(altura, itens[i].Height);
+                }
+                if (linha.Height != altura) linha.Height = altura;
+                ajustando = false;
+            };
+            foreach (var item in itens)
+            {
+                item.Dock = DockStyle.None;
+                linha.Controls.Add(item);
+                item.SizeChanged += (s, e) => ajustar();
+            }
+            linha.Resize += (s, e) => ajustar();
+            ajustar();
+            return linha;
         }
 
         Control NovoBloco(ModeloFormulario m, CampoForm campo)
         {
-            var caixa = new TextBox
+            Control caixa;
+            int alturaCaixa;
+            if (campo.EhLista)
             {
-                Name = "txt_" + campo.Chave, Font = Tema.Texto(11f), BorderStyle = BorderStyle.None,
-                BackColor = Color.White, ForeColor = Tema.TextoCorpo, Dock = DockStyle.Fill, AccessibleName = campo.Rotulo
-            };
+                var lista = new ComboBox
+                {
+                    Name = "cbo_" + campo.Chave, Font = Tema.Texto(11f), DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat,
+                    BackColor = Color.White, ForeColor = Tema.TextoCorpo, Dock = DockStyle.Fill, AccessibleName = campo.Rotulo
+                };
+                lista.Items.AddRange((campo.Opcoes ?? new List<string>()).Cast<object>().ToArray());
+                caixa = lista;
+                alturaCaixa = lista.PreferredHeight;
+            }
+            else
+            {
+                var texto = new TextBox
+                {
+                    Name = "txt_" + campo.Chave, Font = Tema.Texto(11f), BorderStyle = BorderStyle.None,
+                    BackColor = Color.White, ForeColor = Tema.TextoCorpo, Dock = DockStyle.Fill, AccessibleName = campo.Rotulo
+                };
+                if (campo.EhCpf)
+                {
+                    texto.MaxLength = 14;
+                    texto.TextChanged += (s, e) =>
+                    {
+                        var formatado = Dados.FormatarCpf(texto.Text);
+                        if (formatado != texto.Text) { texto.Text = formatado; texto.SelectionStart = formatado.Length; }
+                    };
+                }
+                if (campo.EhData)
+                {
+                    texto.MaxLength = 10;
+                    texto.TextChanged += (s, e) =>
+                    {
+                        var formatado = Dados.FormatarData(texto.Text);
+                        if (formatado != texto.Text) { texto.Text = formatado; texto.SelectionStart = formatado.Length; }
+                    };
+                }
+                if (campo.EhNumero)
+                    texto.KeyPress += (s, e) => { if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar)) e.Handled = true; };
+                if (campo.EhDecimal)
+                {
+                    texto.MaxLength = 7;
+                    texto.KeyPress += (s, e) => { if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar) && e.KeyChar != ',' && e.KeyChar != '.') e.Handled = true; };
+                }
+                if (campo.EhRg || campo.EhPassaporte || campo.EhDocumento) texto.MaxLength = 20;
+                caixa = texto;
+                alturaCaixa = texto.PreferredHeight;
+            }
             // Borda cinza do guia (#BFC3C6), petróleo quando o campo está em foco.
             var moldura = new Panel { Dock = DockStyle.Bottom, BackColor = Color.White, Padding = new Padding(10, 9, 10, 7) };
-            moldura.Height = caixa.PreferredHeight + moldura.Padding.Vertical;
+            moldura.Height = alturaCaixa + moldura.Padding.Vertical;
             moldura.Paint += (s, e) =>
             {
-                using (var caneta = new Pen(caixa.Focused ? Tema.Petroleo : Tema.LinhaForte))
-                    e.Graphics.DrawRectangle(caneta, 0, 0, moldura.Width - 1, moldura.Height - 1);
+                bool falta = pendentes.Contains(campo.Chave);
+                using (var caneta = new Pen(falta ? Tema.Ambar : caixa.Focused ? Tema.Petroleo : Tema.LinhaForte, falta ? 2f : 1f))
+                    e.Graphics.DrawRectangle(caneta, falta ? 1 : 0, falta ? 1 : 0, moldura.Width - (falta ? 3 : 1), moldura.Height - (falta ? 3 : 1));
+            };
+            molduras[campo.Chave] = moldura;
+            caixa.TextChanged += (s, e) =>
+            {
+                MarcarAlterado();
+                if (caixa.Text != "" && pendentes.Remove(campo.Chave)) Estilizar(campo.Chave);
             };
             caixa.Enter += (s, e) => moldura.Invalidate();
             caixa.Leave += (s, e) => moldura.Invalidate();
             moldura.Click += (s, e) => caixa.Focus();
             moldura.Controls.Add(caixa);
-            if (campo.EhCpf)
-            {
-                caixa.MaxLength = 14;
-                caixa.TextChanged += (s, e) =>
-                {
-                    var formatado = Dados.FormatarCpf(caixa.Text);
-                    if (formatado != caixa.Text) { caixa.Text = formatado; caixa.SelectionStart = formatado.Length; }
-                };
-            }
-            if (campo.EhNumero)
-                caixa.KeyPress += (s, e) => { if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar)) e.Handled = true; };
-            if (campo.EhRg || campo.EhPassaporte) caixa.MaxLength = 20;
             caixas[campo.Chave] = caixa;
 
             // O rótulo quebra linha conforme a largura da janela.
@@ -225,18 +355,28 @@ namespace PreenchedorBRMED
             base.OnFormClosed(e);
         }
 
-        void Salvar()
+        static void Disparar(Action acao)
+        {
+            if (acao != null) acao();
+        }
+
+        /// <summary>Valida e salva. Devolve false (mostrando o erro) se algum campo estiver inválido.</summary>
+        bool Salvar(bool avisar)
         {
             var novo = new Dictionary<string, string>();
             var problemas = new List<string>();
-            TextBox primeiro = null;
+            Control primeiro = null;
             Action<CampoForm, string> marcar = (campo, texto) => { problemas.Add(texto); if (primeiro == null) primeiro = caixas[campo.Chave]; };
 
             foreach (var campo in modelo.Campos)
             {
+                // "Data de hoje" não aparece na tela: vai sempre com o dia em que os dados foram salvos.
+                if (!Visivel(campo)) { novo[campo.Chave] = Dados.DataDeHoje(); continue; }
                 var texto = caixas[campo.Chave].Text.Trim();
-                if (campo.EhCpf) texto = Dados.SomenteDigitos(texto);
-                else if (campo.EhPassaporte) texto = texto.ToUpperInvariant();
+                bool documentoCpf = campo.EhDocumento && Dados.ParecaCpf(texto);
+                if (campo.EhCpf || documentoCpf) texto = Dados.SomenteDigitos(texto);
+                else if (campo.EhPassaporte || campo.EhDocumento) texto = texto.ToUpperInvariant();
+                else if (campo.EhDecimal) texto = texto.Replace('.', ',');
                 novo[campo.Chave] = texto;
 
                 if (texto == "")
@@ -245,8 +385,16 @@ namespace PreenchedorBRMED
                 }
                 else if (campo.EhEmail && !System.Text.RegularExpressions.Regex.IsMatch(texto, @"^[^\s@]+@[^\s@]+\.[^\s@]+$"))
                     marcar(campo, "\"" + campo.Rotulo + "\" não parece um e-mail válido.");
+                else if (documentoCpf && !Dados.CpfValido(texto))
+                    marcar(campo, "\"" + campo.Rotulo + "\" parece um CPF, mas não é válido. Confira os dígitos (passaporte tem letras e números).");
+                else if (campo.EhDocumento && !documentoCpf && !System.Text.RegularExpressions.Regex.IsMatch(texto, @"^[A-Za-z0-9]{5,12}$"))
+                    marcar(campo, "\"" + campo.Rotulo + "\" não parece um CPF nem um passaporte válido.");
+                else if (campo.EhData && !Dados.DataValida(texto))
+                    marcar(campo, "\"" + campo.Rotulo + "\" deve ser uma data no formato dd/mm/aaaa.");
                 else if (campo.EhCpf && !Dados.CpfValido(texto))
                     marcar(campo, "\"" + campo.Rotulo + "\" não é um CPF válido. Confira os dígitos.");
+                else if (campo.EhDecimal && !System.Text.RegularExpressions.Regex.IsMatch(texto, @"^\d{1,4}([.,]\d{1,2})?$"))
+                    marcar(campo, "\"" + campo.Rotulo + "\" deve ser um número, com vírgula se precisar (ex.: 70,5).");
                 else if (campo.EhNumero && Dados.SomenteDigitos(texto) != texto)
                     marcar(campo, "\"" + campo.Rotulo + "\" deve ter apenas números.");
                 else if (campo.EhRg && Dados.SomenteAlfanumerico(texto).Length < 5)
@@ -255,37 +403,99 @@ namespace PreenchedorBRMED
                     marcar(campo, "\"" + campo.Rotulo + "\" não parece um passaporte válido (letras e números, de 5 a 12 caracteres).");
             }
 
-            if (problemas.Count == 0 && modelo.Campos.Count > 0 && novo.Values.All(v => v == ""))
+            if (problemas.Count == 0 && modelo.Campos.Count > 0 && novo.Where(par => !modelo.Campo(par.Key).Hoje).All(par => par.Value == ""))
                 marcar(modelo.Campos.First(), "Preencha pelo menos um campo.");
 
             if (problemas.Count > 0)
             {
                 MostrarErro(string.Join(" ", problemas));
                 if (primeiro != null) primeiro.Focus();
-                return;
+                return false;
             }
 
             Dados.Salvar(modelo.Id, novo);
             rascunhos.Remove(modelo.Id);
+            LimparDestaques();
             MostrarErro("");
-            Aviso.Mostrar("Dados de \"" + modelo.Nome + "\" salvos. Agora vá a cada sistema e use " + Atalhos.Texto(Acao.Colar) + ".");
+            if (avisar)
+                Aviso.Mostrar("Dados de \"" + modelo.Nome + "\" salvos. Agora vá ao sistema e clique em \"Colar no sistema\" (ou use " + Atalhos.Texto(Acao.Colar) + ").");
+            return true;
         }
 
-        /// <summary>Coloca nos campos o que foi capturado de outro sistema (Ctrl+Alt+C), sem salvar.</summary>
+        /// <summary>Coloca nos campos o que foi capturado de outro sistema (botão Copiar do BRNET ou atalho), sem salvar.</summary>
         public void Receber(string formularioId, Dictionary<string, string> valores)
         {
             var alvo = RepositorioFormularios.Obter(formularioId);
             if (modelo == null || modelo.Id != alvo.Id) Selecionar(alvo.Id);
             foreach (var par in valores)
             {
-                TextBox caixa;
+                Control caixa;
                 if (!caixas.TryGetValue(par.Key, out caixa)) continue;
                 var campo = modelo.Campo(par.Key);
-                caixa.Text = campo != null && campo.EhCpf ? Dados.FormatarCpf(par.Value) : par.Value;
+                Definir(caixa, campo == null ? par.Value : Exibir(campo, par.Value));
             }
             MostrarErro("");
-            var primeira = caixas.Values.FirstOrDefault();
+            FocarPrimeira();
+        }
+
+        /// <summary>Captura do BRNET: preenche o formulário aberto (ou o Cadastro BRNET, se o aberto não tem esses campos).</summary>
+        public int ReceberBrnet(Dictionary<string, string> valores)
+        {
+            bool serve = modelo != null && valores.Keys.Any(k => modelo.Campo(k) != null);
+            Receber(serve ? modelo.Id : RepositorioFormularios.IdBrnet, valores);
+
+            // O que o BRNET não trouxe (ou veio vazio) fica em destaque para ser preenchido à mão.
+            LimparDestaques();
+            foreach (var campo in modelo.Campos.Where(Visivel))
+                if (caixas[campo.Chave].Text == "") pendentes.Add(campo.Chave);
+            foreach (var chave in pendentes) Estilizar(chave);
+            FocarPrimeira();
+            return pendentes.Count;
+        }
+
+        /// <summary>Pinta de âmbar a moldura dos campos pendentes e devolve ao normal os demais.</summary>
+        void Estilizar(string chave)
+        {
+            Panel moldura;
+            Control caixa;
+            if (!molduras.TryGetValue(chave, out moldura) || !caixas.TryGetValue(chave, out caixa)) return;
+            var fundo = pendentes.Contains(chave) ? FundoPendente : Color.White;
+            moldura.BackColor = fundo;
+            caixa.BackColor = fundo;
+            moldura.Invalidate();
+        }
+
+        void LimparDestaques()
+        {
+            var chaves = pendentes.ToList();
+            pendentes.Clear();
+            foreach (var chave in chaves) Estilizar(chave);
+        }
+
+        void FocarPrimeira()
+        {
+            var visiveis = modelo.Campos.Where(Visivel).ToList();
+            var primeira = visiveis.Where(c => pendentes.Contains(c.Chave)).Concat(visiveis).Select(c => caixas[c.Chave]).FirstOrDefault();
             if (primeira != null) primeira.Focus();
+        }
+
+        // ---------- Valores dos campos ----------
+
+        /// <summary>Como o valor guardado aparece na tela (CPF com pontos).</summary>
+        static string Exibir(CampoForm campo, string valor)
+        {
+            if (campo.EhCpf || (campo.EhDocumento && Dados.ParecaCpf(valor))) return Dados.FormatarCpf(valor);
+            return valor;
+        }
+
+        /// <summary>Escreve em uma caixa de texto ou escolhe a opção da lista (sem diferenciar maiúsculas); opção desconhecida deixa a lista vazia.</summary>
+        static void Definir(Control caixa, string valor)
+        {
+            var lista = caixa as ComboBox;
+            if (lista == null) { caixa.Text = valor ?? ""; return; }
+            lista.SelectedIndex = -1;
+            for (int i = 0; i < lista.Items.Count; i++)
+                if (string.Equals((string)lista.Items[i], valor, StringComparison.OrdinalIgnoreCase)) { lista.SelectedIndex = i; break; }
         }
     }
 }

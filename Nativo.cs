@@ -22,6 +22,37 @@ namespace PreenchedorBRMED
         [DllImport("user32.dll")]
         public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        static extern bool ShowWindow(IntPtr hWnd, int comando);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        static extern int GetClassName(IntPtr hWnd, StringBuilder nome, int max);
+
+        /// <summary>Traz a janela para a frente (restaurando-a se estiver minimizada).</summary>
+        public static void Ativar(IntPtr hWnd)
+        {
+            if (IsIconic(hWnd)) ShowWindow(hWnd, 9); // SW_RESTORE
+            SetForegroundWindow(hWnd);
+        }
+
+        /// <summary>Barra de tarefas e área de trabalho não são sistemas para preencher.</summary>
+        public static bool EhJanelaDoShell(IntPtr hWnd)
+        {
+            var sb = new StringBuilder(64);
+            GetClassName(hWnd, sb, sb.Capacity);
+            var c = sb.ToString();
+            return c == "Shell_TrayWnd" || c == "Shell_SecondaryTrayWnd" || c == "Progman" || c == "WorkerW";
+        }
+
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         static extern int GetWindowText(IntPtr hWnd, StringBuilder texto, int max);
 

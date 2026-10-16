@@ -22,6 +22,10 @@ namespace PreenchedorBRMED
         ToolStripItem itemAtualizar;
         Novidade novidade;
         bool ocupado;
+        // Última janela de outro programa que esteve em primeiro plano: é o destino dos botões do formulário.
+        IntPtr ultimaJanela;
+        readonly uint meuPid = (uint)Process.GetCurrentProcess().Id;
+        System.Windows.Forms.Timer rastreador;
 
         public AppContexto()
         {
@@ -72,6 +76,33 @@ namespace PreenchedorBRMED
                 Aviso.Mostrar("Preenchedor ativo. " + Atalhos.Texto(Acao.Formulario) + " abre o formulário.");
 
             IniciarVerificacaoAutomatica();
+            IniciarRastreio();
+        }
+
+        void IniciarRastreio()
+        {
+            rastreador = new System.Windows.Forms.Timer { Interval = 300 };
+            rastreador.Tick += (s, e) =>
+            {
+                var janela = Nativo.GetForegroundWindow();
+                if (janela == IntPtr.Zero) return;
+                uint pid;
+                Nativo.GetWindowThreadProcessId(janela, out pid);
+                if (pid == meuPid || Nativo.EhJanelaDoShell(janela)) return;
+                ultimaJanela = janela;
+            };
+            rastreador.Start();
+        }
+
+        /// <summary>Janela do sistema onde o usuário estava antes de voltar ao formulário; zero se não houver.</summary>
+        IntPtr JanelaDeDestino()
+        {
+            if (ultimaJanela == IntPtr.Zero || !Nativo.IsWindow(ultimaJanela))
+            {
+                Aviso.Mostrar("Abra o sistema onde quer preencher, clique nele e volte ao formulário.", true);
+                return IntPtr.Zero;
+            }
+            return ultimaJanela;
         }
 
         void IniciarVerificacaoAutomatica()
@@ -183,10 +214,10 @@ namespace PreenchedorBRMED
             switch ((Acao)(id - 1))
             {
                 case Acao.Formulario: AbrirFormulario(); break;
-                case Acao.Colar: Colar(); break;
+                case Acao.Colar: Colar(Nativo.GetForegroundWindow(), false); break;
                 case Acao.Mapear: Mapear(false); break;
                 case Acao.MapearCaptura: Mapear(true); break;
-                case Acao.Capturar: Capturar(); break;
+                case Acao.Capturar: Capturar(Nativo.GetForegroundWindow(), false); break;
             }
         }
 
@@ -208,14 +239,17 @@ namespace PreenchedorBRMED
             }
         }
 
-        void AbrirFormulario()
+        /// <param name="manterAtual">true = se a janela já existe, não troca o formulário que o colaborador está usando.</param>
+        void AbrirFormulario(bool manterAtual = false)
         {
             if (formDados == null || formDados.IsDisposed)
             {
                 formDados = new FormDados();
+                formDados.PedirColar += () => { var j = JanelaDeDestino(); if (j != IntPtr.Zero) Colar(j, true); };
+                formDados.PedirCapturar += () => { var j = JanelaDeDestino(); if (j != IntPtr.Zero) Capturar(j, true); };
                 formDados.Show();
             }
-            else formDados.Selecionar(RepositorioFormularios.IdPrincipal);
+            else if (!manterAtual) formDados.Selecionar(RepositorioFormularios.IdPrincipal);
             formDados.WindowState = FormWindowState.Normal;
             formDados.Activate();
         }
@@ -227,10 +261,9 @@ namespace PreenchedorBRMED
             formPerfis.Activate();
         }
 
-        void Colar()
+        void Colar(IntPtr janela, bool ativar)
         {
             if (ocupado) return;
-            var janela = Nativo.GetForegroundWindow();
             uint pid;
             Nativo.GetWindowThreadProcessId(janela, out pid);
             string processo, titulo = Nativo.TituloDaJanela(janela);
@@ -253,7 +286,7 @@ namespace PreenchedorBRMED
 
             ocupado = true;
             // A UI Automation roda fora da thread da interface para não travar (inclusive no sistema de teste).
-            Task.Run(() => Preenchedor.Colar(perfil, janela)).ContinueWith(t =>
+            Task.Run(() => { if (ativar) AtivarEEsperar(janela); return Preenchedor.Colar(perfil, janela); }).ContinueWith(t =>
             {
                 ocupado = false;
                 var r = t.Exception == null ? t.Result : new Resultado { Erro = t.Exception.GetBaseException().Message };
@@ -285,10 +318,16 @@ namespace PreenchedorBRMED
             }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
-        void Capturar()
+        /// <summary>Devolve o foco ao sistema de destino (o clique no botão o tirou de lá) e espera ele assentar.</summary>
+        static void AtivarEEsperar(IntPtr janela)
+        {
+            Nativo.Ativar(janela);
+            Thread.Sleep(250);
+        }
+
+        void Capturar(IntPtr janela, bool ativar)
         {
             if (ocupado) return;
-            var janela = Nativo.GetForegroundWindow();
             uint pid;
             Nativo.GetWindowThreadProcessId(janela, out pid);
             string processo, titulo = Nativo.TituloDaJanela(janela);
@@ -296,22 +335,42 @@ namespace PreenchedorBRMED
             catch (ArgumentException) { return; }
 
             var perfil = RepositorioPerfis.Capturavel(processo, titulo);
-            if (perfil == null)
+            // Em navegador, tenta primeiro a captura padrão do BRNET; os campos mapeados ficam de reserva.
+            bool navegador = CapturaBrnet.EhNavegador(processo);
+            if (perfil == null && !navegador)
             {
                 Aviso.Mostrar("Nenhum campo de captura mapeado para \"" + processo + "\". Aponte o mouse para um campo e use " + Atalhos.Texto(Acao.MapearCaptura) + ".", true);
                 return;
             }
 
             ocupado = true;
-            Task.Run(() => Capturador.Capturar(perfil, janela)).ContinueWith(t =>
+            Task.Run(() =>
+            {
+                if (ativar) AtivarEEsperar(janela);
+                if (navegador)
+                {
+                    var brnet = CapturaBrnet.Capturar(janela);
+                    if (brnet.Encontrados > 0 || perfil == null) return brnet;
+                }
+                return Capturador.Capturar(perfil, janela);
+            }).ContinueWith(t =>
             {
                 ocupado = false;
                 if (t.Exception != null) { Aviso.Mostrar("Não consegui capturar: " + t.Exception.GetBaseException().Message, true); return; }
                 var r = t.Result;
                 if (r.Erro != null || r.Valores.Count == 0) { Aviso.Mostrar(r.Resumo(), true); return; }
-                AbrirFormulario();
-                formDados.Receber(perfil.FormularioId, r.Valores);
-                Aviso.Mostrar(r.Resumo());
+                AbrirFormulario(r.Brnet);
+                if (r.Brnet)
+                {
+                    int faltam = formDados.ReceberBrnet(r.Valores);
+                    Aviso.Mostrar((r.Valores.Count == 1 ? "1 campo copiado." : r.Valores.Count + " campos copiados.")
+                        + (faltam > 0 ? " Preencha " + (faltam == 1 ? "o campo destacado" : "os " + faltam + " campos destacados") + " e salve." : " Salve para poder colar."));
+                }
+                else
+                {
+                    formDados.Receber(perfil.FormularioId, r.Valores);
+                    Aviso.Mostrar(r.Resumo());
+                }
             }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
@@ -319,6 +378,7 @@ namespace PreenchedorBRMED
         {
             Dados.Limpar();
             atalhos.Dispose();
+            rastreador.Dispose();
             icone.Visible = false;
             icone.Dispose();
             ExitThread();
