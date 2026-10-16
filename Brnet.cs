@@ -46,6 +46,18 @@ namespace PreenchedorBRMED
             return r;
         }
 
+        /// <summary>A aba ativa do navegador mostra o quadro "Paciente" do BRNET? Sempre chamado fora da thread da interface.</summary>
+        public static bool PaginaAberta(IntPtr janela)
+        {
+            try
+            {
+                var r = new ResultadoCaptura();
+                Interpretar(LerLinhas(AutomationElement.FromHandle(janela)), r);
+                return r.Encontrados > 0;
+            }
+            catch (Exception) { return false; }
+        }
+
         /// <summary>O texto da página, uma linha por item, na ordem em que aparece na tela.</summary>
         static List<string> LerLinhas(AutomationElement raiz)
         {

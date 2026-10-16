@@ -91,6 +91,34 @@ namespace PreenchedorBRMED
                 ultimaJanela = janela;
             };
             rastreador.Start();
+
+            // A cada ~2 s, enquanto o formulário está em branco, vê se a aba ativa do navegador é a do BRNET.
+            var deteccao = new System.Windows.Forms.Timer { Interval = 2000 };
+            deteccao.Tick += (s, e) => VerificarBrnet();
+            deteccao.Start();
+        }
+
+        bool verificandoBrnet;
+
+        void VerificarBrnet()
+        {
+            if (formDados == null || formDados.IsDisposed || !formDados.Visible || !formDados.EmBranco || verificandoBrnet || ocupado) return;
+            var janela = ultimaJanela;
+            if (janela == IntPtr.Zero || !Nativo.IsWindow(janela)) { formDados.DefinirBrnetAtivo(false); return; }
+
+            uint pid;
+            Nativo.GetWindowThreadProcessId(janela, out pid);
+            string processo;
+            try { processo = Process.GetProcessById((int)pid).ProcessName; }
+            catch (ArgumentException) { formDados.DefinirBrnetAtivo(false); return; }
+            if (!CapturaBrnet.EhNavegador(processo)) { formDados.DefinirBrnetAtivo(false); return; }
+
+            verificandoBrnet = true;
+            Task.Run(() => CapturaBrnet.PaginaAberta(janela)).ContinueWith(t =>
+            {
+                verificandoBrnet = false;
+                if (formDados != null && !formDados.IsDisposed) formDados.DefinirBrnetAtivo(t.Exception == null && t.Result);
+            }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
         /// <summary>Janela do sistema onde o usuário estava antes de voltar ao formulário; zero se não houver.</summary>

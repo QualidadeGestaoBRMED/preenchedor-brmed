@@ -14,7 +14,6 @@ namespace PreenchedorBRMED
         readonly Dictionary<string, Dictionary<string, string>> rascunhos = new Dictionary<string, Dictionary<string, string>>();
         readonly Panel campos;
         readonly Panel rodape;
-        readonly RotuloQuebra titulo;
         readonly RotuloQuebra erro;
         ModeloFormulario modelo;
 
@@ -27,6 +26,7 @@ namespace PreenchedorBRMED
         readonly BotaoMarca principal;
         bool salvo;
         bool montando;
+        bool brnetAtivo;
         // Campos que o "Copiar do BRNET" não preencheu: ficam em destaque até serem preenchidos.
         readonly HashSet<string> pendentes = new HashSet<string>();
         readonly Dictionary<string, Panel> molduras = new Dictionary<string, Panel>();
@@ -34,7 +34,7 @@ namespace PreenchedorBRMED
 
         public FormDados()
         {
-            Text = "Dados para preencher · BR MED";
+            Text = "Cadastro BRNET";
             Icon = Tema.CriarIcone();
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = true;
@@ -47,17 +47,6 @@ namespace PreenchedorBRMED
             ClientSize = new Size(440, 600);
             MinimumSize = new Size(340, 420);
             KeyPreview = true;
-
-            // ----- Cabeçalho -----
-            var topo = new Panel { Dock = DockStyle.Top, BackColor = Color.White, Padding = new Padding(24, 20, 24, 16) };
-            topo.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Tema.Linha), 0, topo.Height - 1, topo.Width, topo.Height - 1);
-            titulo = new RotuloQuebra
-            {
-                ForeColor = Tema.Marinho, Font = Tema.Titulo(15f), Dock = DockStyle.Top
-            };
-            topo.Controls.Add(titulo);
-            titulo.Resize += (s, e) => topo.Height = Math.Max(titulo.Height, 30) + topo.Padding.Vertical;
-            topo.Height = 64;
 
             // ----- Campos (rolagem automática quando a janela é pequena) -----
             campos = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(24, 20, 24, 0) };
@@ -89,16 +78,11 @@ namespace PreenchedorBRMED
             principal = new BotaoMarca("Salvar dados", EstiloBotao.Primario) { Dock = DockStyle.Right, Width = 170 };
             principal.Click += (s, e) =>
             {
-                if (!salvo) { if (Salvar(true)) { salvo = true; AtualizarBotao(); } }
+                if (CopiarDisponivel) Disparar(PedirCapturar);
+                else if (!salvo) { if (Salvar(true)) { salvo = true; AtualizarBotao(); } }
                 else Disparar(PedirColar);
             };
 
-            // Copiar do BRNET: botão pequeno ao lado do nome do formulário. Entra depois do título para ocupar a direita primeiro.
-            var capturar = new BotaoMarca("Copiar do BRNET", EstiloBotao.Contorno) { Dock = DockStyle.Top, Height = 30, Font = Tema.TextoForte(9f) };
-            capturar.Click += (s, e) => Disparar(PedirCapturar);
-            var lado = new Panel { Dock = DockStyle.Right, Width = 136, Padding = new Padding(10, 0, 0, 0) };
-            lado.Controls.Add(capturar);
-            topo.Controls.Add(lado);
 
             botoes.Controls.Add(principal);
             botoes.Controls.Add(limpar);
@@ -109,7 +93,6 @@ namespace PreenchedorBRMED
             // A ordem importa: o controle que preenche vem primeiro, as bordas depois.
             Controls.Add(campos);
             Controls.Add(rodape);
-            Controls.Add(topo);
 
             Selecionar(RepositorioFormularios.IdPrincipal);
             RepositorioFormularios.Alterado += Recarregar;
@@ -146,7 +129,7 @@ namespace PreenchedorBRMED
             molduras.Clear();
             modelo = m;
             Dados.FormularioAtivo = m.Id;
-            titulo.Text = m.Nome;
+            Text = m.Nome; // o nome do formulário fica na barra de título da janela
             MostrarErro("");
 
             campos.SuspendLayout();
@@ -186,15 +169,32 @@ namespace PreenchedorBRMED
         /// <summary>Campos preenchidos automaticamente com a data de hoje não aparecem no formulário.</summary>
         static bool Visivel(CampoForm campo) { return !campo.Hoje; }
 
+        /// <summary>Nenhum campo visível tem texto: nada para salvar nem colar ainda.</summary>
+        public bool EmBranco
+        {
+            get { return modelo != null && modelo.Campos.Where(Visivel).All(c => caixas[c.Chave].Text == ""); }
+        }
+
+        /// <summary>Com o formulário em branco e a aba do BRNET ativa, o botão do rodapé copia os dados do BRNET.</summary>
+        bool CopiarDisponivel { get { return brnetAtivo && EmBranco; } }
+
+        /// <summary>Chamado pelo rastreio da janela ativa: a aba do BRNET está aberta no navegador?</summary>
+        public void DefinirBrnetAtivo(bool ativo)
+        {
+            if (brnetAtivo == ativo) return;
+            brnetAtivo = ativo;
+            AtualizarBotao();
+        }
+
         void AtualizarBotao()
         {
-            principal.Text = salvo ? "Colar no sistema" : "Salvar dados";
+            principal.Text = CopiarDisponivel ? "Copiar do BRNET" : salvo ? "Colar no sistema" : "Salvar dados";
         }
 
         /// <summary>Qualquer mudança nos campos pede um novo "Salvar dados".</summary>
         void MarcarAlterado()
         {
-            if (montando || !salvo) return;
+            if (montando) return;
             salvo = false;
             AtualizarBotao();
         }
