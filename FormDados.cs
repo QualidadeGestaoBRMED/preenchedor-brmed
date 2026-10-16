@@ -13,6 +13,7 @@ namespace PreenchedorBRMED
         // O que foi digitado e ainda não salvo, para não perder ao trocar de formulário.
         readonly Dictionary<string, Dictionary<string, string>> rascunhos = new Dictionary<string, Dictionary<string, string>>();
         readonly Panel campos;
+        readonly Panel acoesTopo;
         readonly Panel rodape;
         readonly RotuloQuebra titulo;
         readonly RotuloQuebra erro;
@@ -93,11 +94,11 @@ namespace PreenchedorBRMED
                 else Disparar(PedirColar);
             };
 
-            // Copiar do BRNET fica no topo, logo abaixo do título.
-            var acoes = new Panel { Dock = DockStyle.Top, Height = 56, Padding = new Padding(24, 10, 24, 6) };
+            // Copiar do BRNET é o primeiro item da área rolável: sobe junto com os campos.
+            acoesTopo = new Panel { Dock = DockStyle.Top, Height = 54, Padding = new Padding(0, 0, 0, 16) };
             var capturar = new BotaoMarca("Copiar do BRNET", EstiloBotao.Contorno) { Dock = DockStyle.Fill };
             capturar.Click += (s, e) => Disparar(PedirCapturar);
-            acoes.Controls.Add(capturar);
+            acoesTopo.Controls.Add(capturar);
 
             botoes.Controls.Add(principal);
             botoes.Controls.Add(limpar);
@@ -108,7 +109,6 @@ namespace PreenchedorBRMED
             // A ordem importa: o controle que preenche vem primeiro, as bordas depois.
             Controls.Add(campos);
             Controls.Add(rodape);
-            Controls.Add(acoes);
             Controls.Add(topo);
 
             Selecionar(RepositorioFormularios.IdPrincipal);
@@ -150,7 +150,7 @@ namespace PreenchedorBRMED
             MostrarErro("");
 
             campos.SuspendLayout();
-            foreach (var antigo in campos.Controls.Cast<Control>().ToList()) { campos.Controls.Remove(antigo); antigo.Dispose(); }
+            foreach (var antigo in campos.Controls.Cast<Control>().ToList()) { campos.Controls.Remove(antigo); if (antigo != acoesTopo) antigo.Dispose(); }
             caixas.Clear();
 
             // Campos "ao lado" dividem a linha com o anterior.
@@ -164,6 +164,7 @@ namespace PreenchedorBRMED
             var blocos = grupos.Select(g => g.Count == 1 ? g[0] : NovaLinha(g)).ToList();
             // Dock=Top empilha de baixo para cima na ordem de inclusão; por isso o primeiro campo entra por último.
             for (int i = blocos.Count - 1; i >= 0; i--) campos.Controls.Add(blocos[i]);
+            campos.Controls.Add(acoesTopo); // por último = no topo
 
             var valores = Dados.Copia(m.Id);
             Dictionary<string, string> rascunho;
@@ -230,6 +231,17 @@ namespace PreenchedorBRMED
             return linha;
         }
 
+        static int alturaCampo;
+
+        static int AlturaCampo()
+        {
+            if (alturaCampo == 0)
+                using (var texto = new TextBox { Font = Tema.Texto(11f), BorderStyle = BorderStyle.None })
+                using (var lista = new ComboBox { Font = Tema.Texto(11f), FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList })
+                    alturaCampo = Math.Max(texto.PreferredHeight, lista.PreferredHeight);
+            return alturaCampo;
+        }
+
         Control NovoBloco(ModeloFormulario m, CampoForm campo)
         {
             Control caixa;
@@ -282,7 +294,13 @@ namespace PreenchedorBRMED
                 alturaCaixa = texto.PreferredHeight;
             }
             // Borda cinza do guia (#BFC3C6), petróleo quando o campo está em foco.
-            var moldura = new Panel { Dock = DockStyle.Bottom, BackColor = Color.White, Padding = new Padding(10, 9, 10, 7) };
+            // Lista e caixa de texto têm alturas próprias diferentes: todas as molduras usam a maior, para as linhas alinharem.
+            int sobra = AlturaCampo() - alturaCaixa;
+            var moldura = new Panel
+            {
+                Dock = DockStyle.Bottom, BackColor = Color.White,
+                Padding = new Padding(10, 9 + sobra / 2, 10, 7 + sobra - sobra / 2)
+            };
             moldura.Height = alturaCaixa + moldura.Padding.Vertical;
             moldura.Paint += (s, e) =>
             {
