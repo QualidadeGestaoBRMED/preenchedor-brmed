@@ -98,15 +98,13 @@ namespace PreenchedorBRMED
     /// </summary>
     static class RepositorioFormularios
     {
-        public const string IdPadrao = "padrao";
+        /// <summary>O formulário que sempre existe (não pode ser excluído): o Cadastro BRNET.</summary>
+        public const string IdPadrao = "brnet";
         public static readonly string Caminho = Path.Combine(RepositorioPerfis.Pasta, "formularios.json");
 
         static readonly string CaminhoPrincipal = Path.Combine(RepositorioPerfis.Pasta, "principal.txt");
-        // Existe depois que os formulários prontos foram oferecidos uma vez; assim um formulário excluído não volta.
-        static readonly string CaminhoPredefinidos = Path.Combine(RepositorioPerfis.Pasta, "predefinidos.txt");
-
-        /// <summary>Formulário que recebe a captura do BRNET.</summary>
-        public const string IdBrnet = "brnet";
+        /// <summary>O mesmo formulário padrão; recebe a captura do BRNET.</summary>
+        public const string IdBrnet = IdPadrao;
 
         /// <summary>Tipos de exame do portal de telemedicina (também usados para reconhecer o exame na tela do BRNET).</summary>
         public static readonly string[] TiposDeExame =
@@ -122,7 +120,7 @@ namespace PreenchedorBRMED
             {
                 try { if (File.Exists(CaminhoPrincipal)) return Obter(File.ReadAllText(CaminhoPrincipal).Trim()).Id; }
                 catch (IOException) { }
-                return Obter(IdBrnet).Id; // sem escolha feita, abre o Cadastro BRNET (ou o padrão, se ele foi excluído)
+                return IdPadrao;
             }
             set
             {
@@ -181,17 +179,10 @@ namespace PreenchedorBRMED
 
             bool criar = lista == null || lista.Count == 0;
             if (criar) lista = new List<ModeloFormulario>();
-            lista.RemoveAll(m => m == null || string.IsNullOrEmpty(m.Id));
+            // "Cadastro padrão" das versões antigas: o Cadastro BRNET o substitui.
+            lista.RemoveAll(m => m == null || string.IsNullOrEmpty(m.Id) || m.Id == "padrao");
             foreach (var m in lista) if (m.Campos == null) m.Campos = new List<CampoForm>();
             if (!lista.Any(m => m.Id == IdPadrao)) { lista.Insert(0, Padrao()); criar = true; }
-            if (!File.Exists(CaminhoPredefinidos))
-            {
-                foreach (var pronto in Predefinidos())
-                    if (!lista.Any(m => m.Id == pronto.Id)) lista.Add(pronto);
-                criar = true;
-                try { Directory.CreateDirectory(RepositorioPerfis.Pasta); File.WriteAllText(CaminhoPredefinidos, "1"); }
-                catch (IOException) { }
-            }
             if (criar) Gravar(lista);
             return lista;
         }
@@ -210,46 +201,26 @@ namespace PreenchedorBRMED
         }
 
         /// <summary>
-        /// Um único formulário com tudo o que os sistemas pedem: o colaborador preenche uma vez e, a cada sistema,
-        /// clica em "Colar no sistema" (cada sistema pega só os campos que mapeou).
+        /// O Cadastro BRNET: um único formulário com tudo o que os sistemas pedem. O colaborador preenche uma vez e, a cada
+        /// sistema, clica em "Colar no sistema" (cada sistema pega só os campos que mapeou).
         /// </summary>
-        static List<ModeloFormulario> Predefinidos()
-        {
-            return new List<ModeloFormulario>
-            {
-                new ModeloFormulario
-                {
-                    Id = IdBrnet, Nome = "Cadastro BRNET",
-                    Campos = new List<CampoForm>
-                    {
-                        Campo("nome", "Nome", CampoForm.TipoTexto),
-                        Campo("empresa", "Empresa", CampoForm.TipoTexto),
-                        Campo("documento", "CPF ou Passaporte", CampoForm.TipoDocumento),
-                        Campo("data_nascimento", "Data de nascimento", CampoForm.TipoData),
-                        new CampoForm { Chave = "idade", Rotulo = "Idade", Tipo = CampoForm.TipoNumero, AoLado = true },
-                        Campo("altura", "Altura (cm)", CampoForm.TipoNumero),
-                        new CampoForm { Chave = "peso", Rotulo = "Peso (kg)", Tipo = CampoForm.TipoDecimal, AoLado = true },
-                        new CampoForm { Chave = "sexo", Rotulo = "Sexo", Tipo = CampoForm.TipoLista, AoLado = true, Opcoes = new List<string> { "Masculino", "Feminino" } },
-                        new CampoForm { Chave = "tipo_exame", Rotulo = "Tipo de exame", Tipo = CampoForm.TipoLista, Opcoes = TiposDeExame.ToList() },
-                        new CampoForm { Chave = "data_exame", Rotulo = "Data do exame", Tipo = CampoForm.TipoData, Hoje = true }
-                    }
-                }
-            };
-        }
-
         static ModeloFormulario Padrao()
         {
             return new ModeloFormulario
             {
-                Id = IdPadrao,
-                Nome = "Cadastro padrão",
+                Id = IdPadrao, Nome = "Cadastro BRNET",
                 Campos = new List<CampoForm>
                 {
-                    new CampoForm { Chave = "nome",   Rotulo = "Nome",   Tipo = CampoForm.TipoTexto, Obrigatorio = true },
-                    new CampoForm { Chave = "email",  Rotulo = "E-mail", Tipo = CampoForm.TipoEmail },
-                    new CampoForm { Chave = "funcao", Rotulo = "Função", Tipo = CampoForm.TipoTexto },
-                    new CampoForm { Chave = "setor",  Rotulo = "Setor",  Tipo = CampoForm.TipoTexto },
-                    new CampoForm { Chave = "cpf",    Rotulo = "CPF",    Tipo = CampoForm.TipoCpf },
+                    Campo("nome", "Nome", CampoForm.TipoTexto),
+                    Campo("empresa", "Empresa", CampoForm.TipoTexto),
+                    Campo("documento", "CPF ou Passaporte", CampoForm.TipoDocumento),
+                    Campo("data_nascimento", "Data de nascimento", CampoForm.TipoData),
+                    new CampoForm { Chave = "idade", Rotulo = "Idade", Tipo = CampoForm.TipoNumero, AoLado = true },
+                    Campo("altura", "Altura (cm)", CampoForm.TipoNumero),
+                    new CampoForm { Chave = "peso", Rotulo = "Peso (kg)", Tipo = CampoForm.TipoDecimal, AoLado = true },
+                    new CampoForm { Chave = "sexo", Rotulo = "Sexo", Tipo = CampoForm.TipoLista, AoLado = true, Opcoes = new List<string> { "Masculino", "Feminino" } },
+                    new CampoForm { Chave = "tipo_exame", Rotulo = "Tipo de exame", Tipo = CampoForm.TipoLista, Opcoes = TiposDeExame.ToList() },
+                    new CampoForm { Chave = "data_exame", Rotulo = "Data do exame", Tipo = CampoForm.TipoData, Hoje = true }
                 }
             };
         }

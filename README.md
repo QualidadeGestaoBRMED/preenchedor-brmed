@@ -33,7 +33,7 @@ formulário, o app avisa quais campos serão removidos antes de passá-lo para o
 
 O programa fica no ícone perto do relógio. Em **Configurações → Formulário principal** (menu do ícone) escolha qual
 formulário o Ctrl+Alt+F sempre abre; o nome dele aparece no topo da janela. Pelo menu do ícone: formulário, meus formulários, sistemas mapeados,
-sistema de teste, apagar dados e sair.
+apagar dados e sair.
 
 ## Capturar dados de outro sistema ou site
 
@@ -48,16 +48,16 @@ O formulário **não fecha ao salvar**; use **Limpar dados** para começar com o
 
 ## Formulários próprios
 
-Além do "Cadastro padrão", cada colaborador pode criar quantos formulários quiser (menu do ícone → **Meus formulários…**
+Além do "Cadastro BRNET", cada colaborador pode criar quantos formulários quiser (menu do ícone → **Meus formulários…**
 ou **Gerenciar formulários…**). Em cada um define os campos: rótulo, tipo (Texto, E-mail, Número ou Documento: CPF, RG ou Passaporte, que
 validam o que for digitado; CPF e RG têm as opções "com pontos" e "sem pontos" ao mapear) e se é obrigatório. Os rótulos longos quebram linha.
 
 - Cada sistema mapeado usa **um** formulário. Ao mapear um sistema novo com Ctrl+Alt+M, escolha de qual formulário vêm os dados;
   para mudar depois, use **Sistemas mapeados… → Trocar formulário…**.
 - Só a estrutura dos formulários é salva (`formularios.json`, na mesma pasta dos perfis). Os dados digitados continuam só na memória.
-- Excluir um formulário faz os sistemas que o usavam voltarem ao formulário padrão.
+- Excluir um formulário faz os sistemas que o usavam voltarem ao Cadastro BRNET.
 
-As janelas (formulário de dados, meus formulários, sistemas mapeados e sistema de teste) podem ser redimensionadas,
+As janelas (formulário de dados, meus formulários e sistemas mapeados) podem ser redimensionadas,
 maximizadas e minimizadas.
 
 ## Gerar o executável (só quem desenvolve)
@@ -81,12 +81,9 @@ Para abrir junto com o Windows, coloque um atalho do .exe na pasta `shell:startu
 ## Testar em 2 minutos
 
 1. Rode o .exe e pressione **Ctrl+Alt+F**. Preencha e salve (CPF de teste válido: 529.982.247-25).
-2. No menu do ícone, clique em **Abrir sistema de teste**. Clique em um campo dele e pressione **Ctrl+Alt+V**.
-   Os 5 campos são preenchidos, incluindo a lista de departamentos.
-3. Abra o **Bloco de Notas** e pressione **Ctrl+Alt+V**: os dados são digitados linha a linha
-   (exemplo do método por digitação).
-4. Para testar o mapeamento, aponte o mouse para um campo do sistema de teste, pressione **Ctrl+Alt+M**
-   e escolha outro dado. Cole de novo para ver a mudança.
+2. Abra o sistema de destino, aponte o mouse para um campo e pressione **Ctrl+Alt+M** para escolher qual dado vai nele
+   (repita para cada campo).
+3. Clique em **Colar no sistema** (ou use **Ctrl+Alt+V**) na janela do sistema.
 
 ## Como funciona
 
@@ -148,6 +145,5 @@ O `perfis.json` guarda apenas como encontrar os campos, nunca os dados do colabo
 | `Teclado.cs` | Digitação simulada (Unicode, funciona com acentos) |
 | `Perfis.cs` / `FormPerfis.cs` | Perfis salvos em JSON e tela de gerenciamento |
 | `Aviso.cs` | Avisos no canto da tela que não roubam o foco |
-| `SistemaTeste.cs` | Sistema falso para testar sem os sistemas reais |
 | `compilar.bat` | Gera o .exe com o compilador que já vem no Windows |
 | `Tema.cs` | Tokens do design system BR MED (cores, fontes Work Sans/Roboto se instaladas; senão Segoe UI) |

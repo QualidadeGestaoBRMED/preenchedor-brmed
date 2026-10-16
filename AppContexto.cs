@@ -48,7 +48,6 @@ namespace PreenchedorBRMED
             config.DropDownItems.Add(MontarMenuDiagnostico());
             menu.Items.Add(config);
             menu.Items.Add("Sistemas mapeados…", null, (s, e) => AbrirPerfis());
-            menu.Items.Add("Abrir sistema de teste", null, (s, e) => new SistemaTeste().Show());
             menu.Items.Add(new ToolStripSeparator());
             itemAtualizar = menu.Items.Add("Verificar atualizações", null, (s, e) => AoClicarAtualizar());
             menu.Items.Add("Apagar dados agora", null, (s, e) => { Dados.Limpar(); Aviso.Mostrar("Dados apagados."); });

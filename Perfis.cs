@@ -182,14 +182,16 @@ namespace PreenchedorBRMED
             {
                 if (!File.Exists(Caminho))
                 {
-                    var iniciais = PerfisIniciais();
-                    Gravar(iniciais);
-                    return iniciais;
+                    var vazia = new List<Perfil>();
+                    Gravar(vazia);
+                    return vazia;
                 }
                 using (var fluxo = File.OpenRead(Caminho))
                 {
                     var serializador = new DataContractJsonSerializer(typeof(List<Perfil>));
-                    return (List<Perfil>)serializador.ReadObject(fluxo) ?? new List<Perfil>();
+                    var lida = (List<Perfil>)serializador.ReadObject(fluxo) ?? new List<Perfil>();
+                    lida.RemoveAll(EhExemploAntigo);
+                    return lida;
                 }
             }
             catch (Exception erro)
@@ -209,34 +211,10 @@ namespace PreenchedorBRMED
             }
         }
 
-        /// <summary>Exemplos para testar logo depois de instalar.</summary>
-        static List<Perfil> PerfisIniciais()
+        /// <summary>Exemplos que vinham nas versões antigas (sistema de teste e Bloco de Notas): saem ao carregar.</summary>
+        static bool EhExemploAntigo(Perfil p)
         {
-            return new List<Perfil>
-            {
-                new Perfil
-                {
-                    Nome = "Sistema de teste (exemplo de UI Automation)",
-                    Processo = "PreenchedorBRMED",
-                    TituloContem = "Sistema de teste",
-                    Metodo = "uia",
-                    Campos = new List<CampoMapeado>
-                    {
-                        new CampoMapeado { Dado = "nome",   AutomationId = "txtNomeCompleto",  Tipo = "Edit",     Indice = -1, Descricao = "Nome completo" },
-                        new CampoMapeado { Dado = "email",  AutomationId = "txtEmail",         Tipo = "Edit",     Indice = -1, Descricao = "E-mail corporativo" },
-                        new CampoMapeado { Dado = "funcao", AutomationId = "txtCargo",         Tipo = "Edit",     Indice = -1, Descricao = "Cargo" },
-                        new CampoMapeado { Dado = "setor",  AutomationId = "cboDepartamento",  Tipo = "ComboBox", Indice = -1, Descricao = "Departamento" },
-                        new CampoMapeado { Dado = "cpf",    AutomationId = "txtCpf",           Tipo = "Edit",     Indice = -1, Descricao = "CPF" },
-                    }
-                },
-                new Perfil
-                {
-                    Nome = "Bloco de Notas (exemplo de digitação)",
-                    Processo = "notepad",
-                    Metodo = "teclado",
-                    Sequencia = new List<string> { "nome", "{ENTER}", "email", "{ENTER}", "funcao", "{ENTER}", "setor", "{ENTER}", "cpf" }
-                }
-            };
+            return p != null && (p.Nome == "Sistema de teste (exemplo de UI Automation)" || p.Nome == "Bloco de Notas (exemplo de digitação)");
         }
     }
 }
