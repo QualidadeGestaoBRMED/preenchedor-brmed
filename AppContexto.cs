@@ -345,11 +345,13 @@ namespace PreenchedorBRMED
             }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
-        /// <summary>Devolve o foco ao sistema de destino (o clique no botão o tirou de lá) e espera ele assentar.</summary>
+        /// <summary>Devolve o foco ao sistema de destino (o clique no botão o tirou de lá) e espera ele chegar à frente.</summary>
         static void AtivarEEsperar(IntPtr janela)
         {
             Nativo.Ativar(janela);
-            Thread.Sleep(250);
+            // Espera a janela realmente ir para a frente (costuma levar 20 a 60 ms) em vez de uma pausa fixa de 250 ms.
+            for (int esperado = 0; esperado < 600 && Nativo.GetForegroundWindow() != janela; esperado += 10) Thread.Sleep(10);
+            Thread.Sleep(40);
         }
 
         void Capturar(IntPtr janela, bool ativar)

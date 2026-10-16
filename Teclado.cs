@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -19,7 +20,8 @@ namespace PreenchedorBRMED
                 Thread.Sleep(25);
                 esperado += 25;
             }
-            Thread.Sleep(60);
+            // Só vale esperar um pouco se o usuário estava segurando o atalho; com o botão do formulário não há o que soltar.
+            if (esperado > 0) Thread.Sleep(60);
         }
 
         static bool Pressionada(int vk) { return (Nativo.GetAsyncKeyState(vk) & 0x8000) != 0; }
@@ -62,10 +64,44 @@ namespace PreenchedorBRMED
             Nativo.SetCursorPos(antes.X, antes.Y);
         }
 
-        static void Enviar(List<Nativo.INPUT> entradas)
+        static void Enviar(List<Nativo.INPUT> entradas, int pausaMs = 30)
         {
             Nativo.SendInput((uint)entradas.Count, entradas.ToArray(), Marshal.SizeOf(typeof(Nativo.INPUT)));
-            Thread.Sleep(30);
+            Thread.Sleep(pausaMs);
+        }
+
+        /// <summary>
+        /// Clica em (x, y) e, se houver texto, seleciona tudo e digita. O clique usa coordenadas absolutas dentro do próprio evento
+        /// (e a volta do cursor vai na mesma remessa), então não é preciso esperar o programa tratar o clique antes de mexer
+        /// no cursor, como em Clicar. Texto null = só clicar (botões de opção).
+        /// </summary>
+        public static void ClicarEDigitar(int x, int y, string texto)
+        {
+            const uint INPUT_MOUSE = 0, MOVER = 0x1, BAIXO = 0x2, CIMA = 0x4, VIRTUAL = 0x4000, ABSOLUTO = 0x8000;
+            int vx = Nativo.GetSystemMetrics(76), vy = Nativo.GetSystemMetrics(77), vw = Nativo.GetSystemMetrics(78), vh = Nativo.GetSystemMetrics(79);
+            Nativo.POINT antes;
+            Nativo.GetCursorPos(out antes);
+
+            Func<int, int, uint, Nativo.INPUT> mouse = (px, py, flags) =>
+            {
+                var e = new Nativo.INPUT { type = INPUT_MOUSE };
+                e.u.mi = new Nativo.MOUSEINPUT
+                {
+                    dx = (int)((px - vx) * 65535L / Math.Max(1, vw - 1)), dy = (int)((py - vy) * 65535L / Math.Max(1, vh - 1)),
+                    dwFlags = flags | MOVER | ABSOLUTO | VIRTUAL
+                };
+                return e;
+            };
+            Enviar(new List<Nativo.INPUT> { mouse(x, y, BAIXO), mouse(x, y, CIMA), mouse(antes.X, antes.Y, 0) }, 15);
+
+            if (texto == null) return;
+            var teclas = new List<Nativo.INPUT> { Virtual(VK_CONTROL, false), Virtual(VK_A, false), Virtual(VK_A, true), Virtual(VK_CONTROL, true) };
+            foreach (char c in texto)
+            {
+                teclas.Add(Unicode(c, false));
+                teclas.Add(Unicode(c, true));
+            }
+            Enviar(teclas, 10);
         }
 
         static Nativo.INPUT Unicode(char c, bool soltar)

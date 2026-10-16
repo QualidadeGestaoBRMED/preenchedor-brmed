@@ -83,6 +83,9 @@ namespace PreenchedorBRMED
         }
 
         [DllImport("user32.dll")]
+        public static extern int GetSystemMetrics(int indice);
+
+        [DllImport("user32.dll")]
         public static extern bool GetCursorPos(out POINT p);
 
         [DllImport("user32.dll")]

@@ -57,8 +57,8 @@ namespace PreenchedorBRMED
                 r.Erro = "O perfil \"" + perfil.Nome + "\" ainda não tem campos. Aponte o mouse para um campo e use " + Atalhos.Texto(Acao.Mapear) + ".";
                 return;
             }
-            var raiz = AutomationElement.FromHandle(janela);
-            // A leitura da janela (com cache) é a parte lenta: só é feita se algum campo precisar da automação.
+            // Ligar-se à janela pela automação já custa (em Qt, faz o programa ativar a acessibilidade): só quando um campo precisar.
+            AutomationElement raiz = null;
             Instantaneo inst = null;
             bool estruturaAnotada = false;
             string tituloAtual = Nativo.TituloDaJanela(janela);
@@ -92,6 +92,7 @@ namespace PreenchedorBRMED
                 AutomationElement elemento = null;
                 try
                 {
+                    if (raiz == null) raiz = AutomationElement.FromHandle(janela);
                     if (inst == null) inst = Instantaneo.Tirar(raiz);
                     elemento = Localizar(inst, raiz, campo);
                     if (elemento == null || !Escrever(elemento, valor))
@@ -124,13 +125,7 @@ namespace PreenchedorBRMED
         {
             int ox, oy, largura, altura;
             if (!Nativo.AreaCliente(janela, out ox, out oy, out largura, out altura)) return false;
-            Teclado.Clicar(ox + (int)Math.Round(campo.PosX * largura), oy + (int)Math.Round(campo.PosY * altura));
-            if (valor != null)
-            {
-                Thread.Sleep(30);
-                Teclado.SelecionarTudo();
-                Teclado.Digitar(valor);
-            }
+            Teclado.ClicarEDigitar(ox + (int)Math.Round(campo.PosX * largura), oy + (int)Math.Round(campo.PosY * altura), valor);
             return true;
         }
 
