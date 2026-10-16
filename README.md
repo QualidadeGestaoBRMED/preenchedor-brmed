@@ -31,10 +31,14 @@ Data, Lista de opções, Número decimal e Documento: CPF ou Passaporte, além d
 O mapeamento (Ctrl+Alt+M e Ctrl+Alt+K) vai sempre para o **formulário principal**. Se o sistema estava mapeado em outro
 formulário, o app avisa quais campos serão removidos antes de passá-lo para o principal.
 
-**Opções (Sexo, Sim/Não):** aponte o mouse para uma das opções (ex.: Masculino) e use Ctrl+Alt+M para escolher o dado
-(Sexo). Ao colar, o app marca a opção que corresponde ao valor (Masculino/Feminino, também reconhece Male/Female e M/F).
-Em programas sem identificador nos campos (Qt, Delphi), o campo é reencontrado pelo texto do rótulo ao lado, e a janela
-é lida de uma vez só, o que deixa o preenchimento rápido.
+**Programas em Qt (ex.: Spirometer):** os campos desses programas não são janelas do Windows, a automação é lenta e não
+traz identificadores. Neles o mapeamento (Ctrl+Alt+M) guarda a **posição do campo dentro da tela** (por exemplo, a tela
+"Novo"), e colar é um clique no lugar e a digitação, sem consultar a automação, então é quase instantâneo. O mapeamento só
+vale na tela em que foi feito; em outra tela os campos são ignorados e o aviso diz qual tela abrir.
+
+**Opções (Sexo, Sim/Não):** aponte o mouse para cada botão de opção e use Ctrl+Alt+M: o menu mostra "Sexo: Masculino",
+"Sexo: Feminino" etc. Faça uma vez para cada botão. Ao colar, só é clicado o botão que corresponde ao valor do formulário
+(também reconhece Male/Female e M/F).
 
 O programa fica no ícone perto do relógio. Em **Configurações → Formulário principal** (menu do ícone) escolha qual
 formulário o Ctrl+Alt+F sempre abre; o nome dele aparece no topo da janela. Pelo menu do ícone: formulário, meus formulários, sistemas mapeados,
