@@ -9,8 +9,8 @@ namespace PreenchedorBRMED
     /// <summary>Tela "Meus formulários": o colaborador cria, renomeia e exclui formulários e define os campos de cada um.</summary>
     class FormModelos : Form
     {
-        static readonly string[] NomesTipo = { "Texto", "E-mail", "Número", "Documento: CPF", "Documento: RG", "Documento: Passaporte" };
-        static readonly string[] ChavesTipo = { CampoForm.TipoTexto, CampoForm.TipoEmail, CampoForm.TipoNumero, CampoForm.TipoCpf, CampoForm.TipoRg, CampoForm.TipoPassaporte };
+        static readonly string[] NomesTipo = { "Texto", "E-mail", "Número", "Documento: CPF", "Documento: RG", "Documento: Passaporte", "Documento: CPF ou Passaporte", "Data (dd/mm/aaaa)", "Lista de opções", "Número decimal" };
+        static readonly string[] ChavesTipo = { CampoForm.TipoTexto, CampoForm.TipoEmail, CampoForm.TipoNumero, CampoForm.TipoCpf, CampoForm.TipoRg, CampoForm.TipoPassaporte, CampoForm.TipoDocumento, CampoForm.TipoData, CampoForm.TipoLista, CampoForm.TipoDecimal };
 
         static FormModelos aberto;
 
@@ -64,7 +64,7 @@ namespace PreenchedorBRMED
             var dicaCampos = new RotuloQuebra
             {
                 Text = "Campos do formulário. Escreva o rótulo na última linha vazia para criar um campo novo. "
-                    + "Os tipos E-mail, Número e Documento (CPF, RG, Passaporte) validam o que for digitado; CPF e RG podem ir com ou sem pontos para os outros sistemas, escolhendo ao mapear; os campos obrigatórios precisam estar preenchidos para salvar os dados.",
+                    + "Os tipos E-mail, Número, Data e Documento (CPF, RG, Passaporte, CPF ou Passaporte) validam o que for digitado; \"Lista de opções\" usa a coluna das opções e \"Data de hoje\" não aparece no formulário e vai sempre com o dia em que os dados foram salvos; \"Na linha do anterior\" põe campos curtos lado a lado; CPF e RG podem ir com ou sem pontos para os outros sistemas, escolhendo ao mapear; os campos obrigatórios precisam estar preenchidos para salvar os dados.",
                 ForeColor = Tema.Suave, Dock = DockStyle.Top, Padding = new Padding(0, 10, 0, 6)
             };
             nome.Dock = DockStyle.Top;
@@ -156,13 +156,18 @@ namespace PreenchedorBRMED
             // A lista suspensa abre com a largura do texto mais longo, mesmo com a coluna estreita.
             colTipo.DropDownWidth = NomesTipo.Max(n => TextRenderer.MeasureText(n, Font).Width) + SystemInformation.VerticalScrollBarWidth + 12;
             var colObrig = new DataGridViewCheckBoxColumn { HeaderText = "Obrigatório", FillWeight = 32, MinimumWidth = 80 };
-            grade.Columns.AddRange(colRotulo, colTipo, colObrig);
+            var colOpcoes = new DataGridViewTextBoxColumn { HeaderText = "Opções da lista (separe com ;)", FillWeight = 60, MinimumWidth = 100 };
+            var colHoje = new DataGridViewCheckBoxColumn { HeaderText = "Data de hoje (automática, oculta)", FillWeight = 26, MinimumWidth = 70 };
+            var colLado = new DataGridViewCheckBoxColumn { HeaderText = "Na linha do anterior", FillWeight = 30, MinimumWidth = 80 };
+            grade.Columns.AddRange(colRotulo, colTipo, colObrig, colOpcoes, colHoje, colLado);
 
             grade.DefaultValuesNeeded += (s, e) =>
             {
                 carregando = true; // valores iniciais da linha nova não contam como alteração do usuário
                 e.Row.Cells[1].Value = NomesTipo[0];
                 e.Row.Cells[2].Value = false;
+                e.Row.Cells[4].Value = false;
+                e.Row.Cells[5].Value = false;
                 carregando = false;
             };
             grade.DataError += (s, e) => e.ThrowException = false;
@@ -188,7 +193,8 @@ namespace PreenchedorBRMED
             grade.Rows.Clear();
             foreach (var c in atual.Campos)
             {
-                int i = grade.Rows.Add(c.Rotulo, NomesTipo[Math.Max(0, Array.IndexOf(ChavesTipo, (c.Tipo ?? "").ToLowerInvariant()))], c.Obrigatorio);
+                int i = grade.Rows.Add(c.Rotulo, NomesTipo[Math.Max(0, Array.IndexOf(ChavesTipo, (c.Tipo ?? "").ToLowerInvariant()))], c.Obrigatorio,
+                    c.Opcoes == null ? "" : string.Join("; ", c.Opcoes), c.Hoje, c.AoLado);
                 grade.Rows[i].Tag = c.Chave;
             }
             excluir.Enabled = atual.Id != RepositorioFormularios.IdPadrao;
@@ -221,11 +227,17 @@ namespace PreenchedorBRMED
                     atual.Campos.Add(new CampoForm { Chave = chave });
                 }
                 int tipo = Array.IndexOf(NomesTipo, Convert.ToString(linha.Cells[1].Value));
-                campos.Add(new CampoForm
+                var campo = new CampoForm
                 {
                     Chave = chave, Rotulo = rotulo, Tipo = ChavesTipo[Math.Max(0, tipo)],
                     Obrigatorio = linha.Cells[2].Value is bool && (bool)linha.Cells[2].Value
-                });
+                };
+                if (campo.EhLista)
+                    campo.Opcoes = Convert.ToString(linha.Cells[3].Value ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(o => o.Trim()).Where(o => o != "").Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                if (campo.EhData) campo.Hoje = linha.Cells[4].Value is bool && (bool)linha.Cells[4].Value;
+                campo.AoLado = linha.Cells[5].Value is bool && (bool)linha.Cells[5].Value;
+                campos.Add(campo);
             }
             atual.Campos = campos;
             // O nome na lista acompanha o que foi digitado.
@@ -310,6 +322,8 @@ namespace PreenchedorBRMED
                 if (modelos.Any(x => !ReferenceEquals(x, m) && string.Equals(x.Nome, m.Nome, StringComparison.OrdinalIgnoreCase)))
                     return Recusar("Já existe outro formulário chamado \"" + m.Nome + "\". Use nomes diferentes.", m);
                 if (m.Campos.Count == 0) return Recusar("O formulário \"" + m.Nome + "\" ainda não tem campos.", m);
+                var semOpcoes = m.Campos.FirstOrDefault(c => c.EhLista && (c.Opcoes == null || c.Opcoes.Count == 0));
+                if (semOpcoes != null) return Recusar("O campo \"" + semOpcoes.Rotulo + "\" é uma lista: escreva as opções na coluna \"Opções da lista\", separadas por ponto e vírgula.", m);
             }
 
             var removidos = RepositorioFormularios.Todos().Where(antigo => !modelos.Any(m => m.Id == antigo.Id)).ToList();

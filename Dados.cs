@@ -91,6 +91,11 @@ namespace PreenchedorBRMED
                 if (atuais.TryGetValue(modelo.Id, out valores)) valores.TryGetValue(chaveCampo, out bruto);
             }
             if (campo.EhCpf) return numeros ? SomenteDigitos(bruto) : FormatarCpf(bruto);
+            if (campo.EhDocumento)
+            {
+                if (ParecaCpf(bruto)) return numeros ? SomenteDigitos(bruto) : FormatarCpf(bruto);
+                return numeros ? SomenteAlfanumerico(bruto) : (bruto ?? "").Trim().ToUpperInvariant();
+            }
             if (campo.EhRg) return numeros ? SomenteAlfanumerico(bruto) : FormatarRg(bruto);
             return numeros ? "" : bruto ?? "";
         }
@@ -127,6 +132,33 @@ namespace PreenchedorBRMED
             if (d.Length > 6) return d.Substring(0, 3) + "." + d.Substring(3, 3) + "." + d.Substring(6);
             if (d.Length > 3) return d.Substring(0, 3) + "." + d.Substring(3);
             return d;
+        }
+
+        /// <summary>Só dígitos e pontuação de CPF: é CPF. Qualquer letra indica passaporte.</summary>
+        public static bool ParecaCpf(string s)
+        {
+            return !string.IsNullOrWhiteSpace(s) && Regex.IsMatch(s.Trim(), @"^[\d.\-\s]+$");
+        }
+
+        /// <summary>Vai montando dd/MM/aaaa conforme os dígitos são digitados.</summary>
+        public static string FormatarData(string s)
+        {
+            var d = SomenteDigitos(s);
+            if (d.Length > 8) d = d.Substring(0, 8);
+            if (d.Length > 4) return d.Substring(0, 2) + "/" + d.Substring(2, 2) + "/" + d.Substring(4);
+            if (d.Length > 2) return d.Substring(0, 2) + "/" + d.Substring(2);
+            return d;
+        }
+
+        public static bool DataValida(string s)
+        {
+            DateTime ignorada;
+            return DateTime.TryParseExact(s, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out ignorada);
+        }
+
+        public static string DataDeHoje()
+        {
+            return DateTime.Today.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         public static bool CpfValido(string cpf)

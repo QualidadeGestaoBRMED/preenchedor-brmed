@@ -14,19 +14,31 @@ namespace PreenchedorBRMED
     class CampoForm
     {
         public const string TipoTexto = "texto", TipoEmail = "email", TipoNumero = "numero",
-            TipoCpf = "cpf", TipoRg = "rg", TipoPassaporte = "passaporte"; // os três últimos são os tipos de "Documento"
+            TipoCpf = "cpf", TipoRg = "rg", TipoPassaporte = "passaporte", // CPF, RG, Passaporte e CPF ou Passaporte são os tipos de "Documento"
+            TipoDocumento = "documento", TipoData = "data", TipoLista = "lista", TipoDecimal = "decimal";
 
         [DataMember(Order = 1)] public string Chave { get; set; }
         [DataMember(Order = 2)] public string Rotulo { get; set; }
         [DataMember(Order = 3)] public string Tipo { get; set; }
         [DataMember(Order = 4)] public bool Obrigatorio { get; set; }
+        /// <summary>Só para o tipo Lista: as opções que o colaborador pode escolher.</summary>
+        [DataMember(Order = 5, EmitDefaultValue = false)] public List<string> Opcoes { get; set; }
+        /// <summary>Só para o tipo Data: já vem preenchido com a data do dia.</summary>
+        [DataMember(Order = 6, EmitDefaultValue = false)] public bool Hoje { get; set; }
+        /// <summary>Fica na mesma linha do campo anterior (para valores curtos, como idade, altura e peso).</summary>
+        [DataMember(Order = 7, EmitDefaultValue = false)] public bool AoLado { get; set; }
 
         public bool EhCpf { get { return string.Equals(Tipo, TipoCpf, StringComparison.OrdinalIgnoreCase); } }
         public bool EhRg { get { return string.Equals(Tipo, TipoRg, StringComparison.OrdinalIgnoreCase); } }
         public bool EhPassaporte { get { return string.Equals(Tipo, TipoPassaporte, StringComparison.OrdinalIgnoreCase); } }
         public bool EhNumero { get { return string.Equals(Tipo, TipoNumero, StringComparison.OrdinalIgnoreCase); } }
         /// <summary>Documentos que podem ir com pontos ou só com números/letras para o outro sistema.</summary>
-        public bool TemMascara { get { return EhCpf || EhRg; } }
+        public bool TemMascara { get { return EhCpf || EhRg || EhDocumento; } }
+        /// <summary>Aceita CPF ou passaporte (estrangeiros): o que for digitado define qual é.</summary>
+        public bool EhDocumento { get { return string.Equals(Tipo, TipoDocumento, StringComparison.OrdinalIgnoreCase); } }
+        public bool EhData { get { return string.Equals(Tipo, TipoData, StringComparison.OrdinalIgnoreCase); } }
+        public bool EhDecimal { get { return string.Equals(Tipo, TipoDecimal, StringComparison.OrdinalIgnoreCase); } }
+        public bool EhLista { get { return string.Equals(Tipo, TipoLista, StringComparison.OrdinalIgnoreCase); } }
         public bool EhEmail { get { return string.Equals(Tipo, TipoEmail, StringComparison.OrdinalIgnoreCase); } }
     }
 
@@ -49,7 +61,11 @@ namespace PreenchedorBRMED
             {
                 Id = Id, Nome = Nome,
                 Campos = (Campos ?? new List<CampoForm>())
-                    .Select(c => new CampoForm { Chave = c.Chave, Rotulo = c.Rotulo, Tipo = c.Tipo, Obrigatorio = c.Obrigatorio })
+                    .Select(c => new CampoForm
+                    {
+                        Chave = c.Chave, Rotulo = c.Rotulo, Tipo = c.Tipo, Obrigatorio = c.Obrigatorio, Hoje = c.Hoje, AoLado = c.AoLado,
+                        Opcoes = c.Opcoes == null ? null : c.Opcoes.ToList()
+                    })
                     .ToList()
             };
         }
@@ -86,6 +102,18 @@ namespace PreenchedorBRMED
         public static readonly string Caminho = Path.Combine(RepositorioPerfis.Pasta, "formularios.json");
 
         static readonly string CaminhoPrincipal = Path.Combine(RepositorioPerfis.Pasta, "principal.txt");
+        // Existe depois que os formulários prontos foram oferecidos uma vez; assim um formulário excluído não volta.
+        static readonly string CaminhoPredefinidos = Path.Combine(RepositorioPerfis.Pasta, "predefinidos.txt");
+
+        /// <summary>Formulário que recebe a captura do BRNET.</summary>
+        public const string IdBrnet = "brnet";
+
+        /// <summary>Tipos de exame do portal de telemedicina (também usados para reconhecer o exame na tela do BRNET).</summary>
+        public static readonly string[] TiposDeExame =
+        {
+            "Admissional", "Demissional", "Exames Complementares", "Mudança de Riscos Ocupacionais",
+            "Periódico", "Periódico Semestral", "Retorno ao Trabalho", "Semestral pós Admissão"
+        };
 
         /// <summary>Formulário que o programa sempre abre (escolhido em Configurações). Se foi excluído, vale o padrão.</summary>
         public static string IdPrincipal
@@ -94,7 +122,7 @@ namespace PreenchedorBRMED
             {
                 try { if (File.Exists(CaminhoPrincipal)) return Obter(File.ReadAllText(CaminhoPrincipal).Trim()).Id; }
                 catch (IOException) { }
-                return IdPadrao;
+                return Obter(IdBrnet).Id; // sem escolha feita, abre o Cadastro BRNET (ou o padrão, se ele foi excluído)
             }
             set
             {
@@ -156,6 +184,14 @@ namespace PreenchedorBRMED
             lista.RemoveAll(m => m == null || string.IsNullOrEmpty(m.Id));
             foreach (var m in lista) if (m.Campos == null) m.Campos = new List<CampoForm>();
             if (!lista.Any(m => m.Id == IdPadrao)) { lista.Insert(0, Padrao()); criar = true; }
+            if (!File.Exists(CaminhoPredefinidos))
+            {
+                foreach (var pronto in Predefinidos())
+                    if (!lista.Any(m => m.Id == pronto.Id)) lista.Add(pronto);
+                criar = true;
+                try { Directory.CreateDirectory(RepositorioPerfis.Pasta); File.WriteAllText(CaminhoPredefinidos, "1"); }
+                catch (IOException) { }
+            }
             if (criar) Gravar(lista);
             return lista;
         }
@@ -166,6 +202,39 @@ namespace PreenchedorBRMED
             using (var fluxo = File.Create(Caminho))
             using (var escritor = JsonReaderWriterFactory.CreateJsonWriter(fluxo, Encoding.UTF8, false, true, "  "))
                 new DataContractJsonSerializer(typeof(List<ModeloFormulario>)).WriteObject(escritor, lista);
+        }
+
+        static CampoForm Campo(string chave, string rotulo, string tipo, bool obrigatorio = false)
+        {
+            return new CampoForm { Chave = chave, Rotulo = rotulo, Tipo = tipo, Obrigatorio = obrigatorio };
+        }
+
+        /// <summary>
+        /// Um único formulário com tudo o que os sistemas pedem: o colaborador preenche uma vez e, a cada sistema,
+        /// clica em "Colar no sistema" (cada sistema pega só os campos que mapeou).
+        /// </summary>
+        static List<ModeloFormulario> Predefinidos()
+        {
+            return new List<ModeloFormulario>
+            {
+                new ModeloFormulario
+                {
+                    Id = IdBrnet, Nome = "Cadastro BRNET",
+                    Campos = new List<CampoForm>
+                    {
+                        Campo("nome", "Nome", CampoForm.TipoTexto),
+                        Campo("empresa", "Empresa", CampoForm.TipoTexto),
+                        Campo("documento", "CPF ou Passaporte", CampoForm.TipoDocumento),
+                        Campo("data_nascimento", "Data de nascimento", CampoForm.TipoData),
+                        new CampoForm { Chave = "idade", Rotulo = "Idade", Tipo = CampoForm.TipoNumero, AoLado = true },
+                        Campo("altura", "Altura (cm)", CampoForm.TipoNumero),
+                        new CampoForm { Chave = "peso", Rotulo = "Peso (kg)", Tipo = CampoForm.TipoDecimal, AoLado = true },
+                        new CampoForm { Chave = "sexo", Rotulo = "Sexo", Tipo = CampoForm.TipoLista, AoLado = true, Opcoes = new List<string> { "Masculino", "Feminino" } },
+                        new CampoForm { Chave = "tipo_exame", Rotulo = "Tipo de exame", Tipo = CampoForm.TipoLista, Opcoes = TiposDeExame.ToList() },
+                        new CampoForm { Chave = "data_exame", Rotulo = "Data do exame", Tipo = CampoForm.TipoData, Hoje = true }
+                    }
+                }
+            };
         }
 
         static ModeloFormulario Padrao()
